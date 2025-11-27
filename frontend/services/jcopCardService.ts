@@ -4,7 +4,6 @@
  */
 
 import { Platform, PermissionsAndroid } from 'react-native';
-import { BleManager, Device, Characteristic } from 'react-native-ble-plx';
 
 // Types
 export interface CardReader {
