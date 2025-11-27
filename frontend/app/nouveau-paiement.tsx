@@ -24,22 +24,22 @@ const PAYMENT_METHODS = [
     key: 'card_contact', 
     label: 'Carte à puce (contact)', 
     icon: 'card',
-    available: false,
-    message: 'Disponible prochainement'
+    available: true,
+    message: 'Mode simulation'
   },
   { 
     key: 'card_usb', 
     label: 'Carte via câble USB-C', 
     icon: 'hardware-chip',
-    available: false,
-    message: 'Disponible prochainement'
+    available: true,
+    message: 'Mode simulation'
   },
   { 
     key: 'card_bluetooth', 
     label: 'Carte via Bluetooth', 
     icon: 'bluetooth',
-    available: false,
-    message: 'Disponible prochainement'
+    available: true,
+    message: 'Mode simulation'
   },
   { 
     key: 'crypto_link', 
