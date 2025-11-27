@@ -89,9 +89,9 @@ export default function NouveauPaiementScreen() {
         }
       });
     } else {
-      // Card payment screen
+      // Card payment screen - JCOP
       router.push({
-        pathname: '/paiement-carte',
+        pathname: '/paiement-carte-jcop',
         params: {
           currency: selectedCurrency,
           amount: amount,
