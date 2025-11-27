@@ -5,14 +5,16 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert
+  Alert,
+  FlatList
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { COLORS, CURRENCY_NAMES } from '../config/constants';
 import { Ionicons } from '@expo/vector-icons';
+import jcopCardService, { CardReader, WalletInfo } from '../services/jcopCardService';
 
-type PaymentStep = 'waiting_card' | 'reading_card' | 'processing' | 'checking_balance' | 'success' | 'declined';
+type PaymentStep = 'select_reader' | 'connecting' | 'waiting_card' | 'reading_card' | 'processing' | 'checking_balance' | 'success' | 'declined';
 
 export default function PaiementCarteScreen() {
   const router = useRouter();
