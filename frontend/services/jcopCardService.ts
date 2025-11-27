@@ -453,11 +453,7 @@ class JCOPCardService {
 
   async disconnect(): Promise<void> {
     try {
-      if (this.bluetoothDevice) {
-        await this.bluetoothDevice.cancelConnection();
-        this.bluetoothDevice = null;
-      }
-
+      // VERSION SIMULATION
       this.connectedReader = null;
       console.log('Lecteur déconnecté');
     } catch (error) {
