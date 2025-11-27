@@ -48,12 +48,19 @@ const APDU_VERIFY = 0x20;
 const WALLET_APPLET_AID = [0xA0, 0x00, 0x00, 0x00, 0x62, 0x03, 0x01, 0x0C, 0x06, 0x01];
 
 class JCOPCardService {
-  private bleManager: BleManager;
+  private bleManager: BleManager | null = null;
   private connectedReader: CardReader | null = null;
   private bluetoothDevice: Device | null = null;
 
   constructor() {
-    this.bleManager = new BleManager();
+    // Ne pas initialiser BleManager ici - le faire à la demande
+  }
+
+  private getBleManager(): BleManager {
+    if (!this.bleManager) {
+      this.bleManager = new BleManager();
+    }
+    return this.bleManager;
   }
 
   // =============== GESTION DES PERMISSIONS ===============
