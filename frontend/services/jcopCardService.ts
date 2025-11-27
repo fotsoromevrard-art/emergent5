@@ -100,15 +100,17 @@ class JCOPCardService {
 
     // Scanner les lecteurs Bluetooth
     return new Promise((resolve, reject) => {
+      const bleManager = this.getBleManager();
+      
       const timeout = setTimeout(() => {
-        this.bleManager.stopDeviceScan();
+        bleManager.stopDeviceScan();
         resolve(readers);
       }, timeoutMs);
 
-      this.bleManager.startDeviceScan(null, null, (error, device) => {
+      bleManager.startDeviceScan(null, null, (error, device) => {
         if (error) {
           clearTimeout(timeout);
-          this.bleManager.stopDeviceScan();
+          bleManager.stopDeviceScan();
           reject(error);
           return;
         }
