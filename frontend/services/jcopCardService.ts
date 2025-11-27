@@ -80,57 +80,34 @@ class JCOPCardService {
   // =============== DÉCOUVERTE DES LECTEURS ===============
 
   async scanForReaders(timeoutMs: number = 10000): Promise<CardReader[]> {
-    const readers: CardReader[] = [];
-
-    // Vérifier les permissions
-    const hasPermissions = await this.requestPermissions();
-    if (!hasPermissions) {
-      throw new Error('Permissions Bluetooth refusées');
-    }
-
-    // Scanner les lecteurs Bluetooth
-    return new Promise((resolve, reject) => {
-      const bleManager = this.getBleManager();
-      
-      const timeout = setTimeout(() => {
-        bleManager.stopDeviceScan();
-        resolve(readers);
-      }, timeoutMs);
-
-      bleManager.startDeviceScan(null, null, (error, device) => {
-        if (error) {
-          clearTimeout(timeout);
-          bleManager.stopDeviceScan();
-          reject(error);
-          return;
-        }
-
-        if (device && device.name) {
-          // Filtrer les lecteurs de carte (mots-clés courants)
-          const isCardReader = 
-            device.name.toLowerCase().includes('acr') ||
-            device.name.toLowerCase().includes('card') ||
-            device.name.toLowerCase().includes('reader') ||
-            device.name.toLowerCase().includes('feitian') ||
-            device.name.toLowerCase().includes('omnikey');
-
-          if (isCardReader) {
-            const reader: CardReader = {
-              id: device.id,
-              name: device.name,
-              type: 'bluetooth',
-              connected: false,
-              device: device
-            };
-
-            // Éviter les doublons
-            if (!readers.find(r => r.id === reader.id)) {
-              readers.push(reader);
-            }
-          }
-        }
-      });
-    });
+    // VERSION SIMULATION - Pour hardware réel, décommenter l'import de react-native-ble-plx
+    // et implémenter le vrai scan BLE
+    
+    await new Promise(resolve => setTimeout(resolve, 2000)); // Simuler le scan
+    
+    // Lecteurs simulés
+    const simulatedReaders: CardReader[] = [
+      {
+        id: 'sim-acr1255',
+        name: 'ACS ACR1255U (Simulé)',
+        type: 'bluetooth',
+        connected: false
+      },
+      {
+        id: 'sim-feitian',
+        name: 'Feitian bR500 (Simulé)',
+        type: 'bluetooth',
+        connected: false
+      },
+      {
+        id: 'sim-usb',
+        name: 'Lecteur USB (Simulé)',
+        type: 'usb',
+        connected: false
+      }
+    ];
+    
+    return simulatedReaders;
   }
 
   // =============== CONNEXION AU LECTEUR ===============
