@@ -128,16 +128,11 @@ class JCOPCardService {
 
   private async connectBluetooth(reader: CardReader): Promise<boolean> {
     try {
-      if (!reader.device) return false;
-
-      // Connexion au device
-      const device = await reader.device.connect();
-      await device.discoverAllServicesAndCharacteristics();
-
-      this.bluetoothDevice = device;
+      // VERSION SIMULATION
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       this.connectedReader = { ...reader, connected: true };
-
-      console.log('Lecteur Bluetooth connecté:', reader.name);
+      console.log('Lecteur Bluetooth connecté (simulé):', reader.name);
       return true;
     } catch (error) {
       console.error('Erreur connexion Bluetooth:', error);
