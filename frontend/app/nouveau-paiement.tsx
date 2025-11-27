@@ -73,15 +73,14 @@ export default function NouveauPaiementScreen() {
   const handleMethodSelect = (method: string) => {
     const paymentMethod = PAYMENT_METHODS.find(m => m.key === method);
     
-    if (!paymentMethod?.available) {
-      Alert.alert('Non disponible', paymentMethod?.message || 'Cette méthode n\'est pas encore disponible');
-      return;
-    }
-
     setSelectedMethod(method);
     
     // Redirect to appropriate payment screen
     if (method === 'crypto_link') {
+      if (!paymentMethod?.available) {
+        Alert.alert('Non disponible', paymentMethod?.message || 'Cette méthode n\'est pas encore disponible');
+        return;
+      }
       router.push({
         pathname: '/paiement-lien',
         params: {
@@ -90,8 +89,15 @@ export default function NouveauPaiementScreen() {
         }
       });
     } else {
-      // Card payment screens (to be implemented)
-      Alert.alert('En cours de développement', 'Cette fonctionnalité sera disponible bientôt');
+      // Card payment screen
+      router.push({
+        pathname: '/paiement-carte',
+        params: {
+          currency: selectedCurrency,
+          amount: amount,
+          method: method
+        }
+      });
     }
   };
 
