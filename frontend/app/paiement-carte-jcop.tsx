@@ -241,12 +241,18 @@ export default function PaiementCarteJCOPScreen() {
         {/* Étape 1: Sélection du lecteur */}
         {step === 'select_reader' && (
           <View style={styles.stepContainer}>
-            <Text style={styles.stepTitle}>Sélectionner un lecteur</Text>
+            <Text style={styles.stepTitle}>Détection automatique USB</Text>
             
             {scanning && (
               <View style={styles.scanningContainer}>
                 <ActivityIndicator size="large" color={COLORS.primary} />
-                <Text style={styles.scanningText}>Recherche de lecteurs...</Text>
+                <Text style={styles.scanningText}>Détection en cours...</Text>
+                <View style={styles.instructionBox}>
+                  <Ionicons name="information-circle" size={32} color={COLORS.secondary} />
+                  <Text style={styles.instructionText}>
+                    Connectez maintenant votre lecteur de carte via le port USB de votre téléphone
+                  </Text>
+                </View>
               </View>
             )}
 
