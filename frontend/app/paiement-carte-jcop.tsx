@@ -170,7 +170,7 @@ export default function PaiementCarteJCOPScreen() {
   };
 
   const handleCancel = async () => {
-    await jcopCardService.disconnect();
+    await usbCardReaderService.disconnect();
     router.back();
   };
 
