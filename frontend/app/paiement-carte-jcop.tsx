@@ -34,9 +34,43 @@ export default function PaiementCarteJCOPScreen() {
   const paymentMethod = params.method as string;
 
   useEffect(() => {
-    // Scanner automatiquement au démarrage
-    handleScanReaders();
+    // Démarrer la détection automatique USB
+    startAutoUSBDetection();
+    
+    return () => {
+      // Nettoyer à la fermeture
+      usbCardReaderService.stopAutoDetection();
+    };
   }, []);
+
+  // Détection automatique USB
+  const startAutoUSBDetection = () => {
+    setScanning(true);
+    setError('');
+    
+    Alert.alert(
+      'Détection automatique',
+      'Connectez votre lecteur de carte via USB maintenant. La détection se fera automatiquement.',
+      [{ text: 'OK' }]
+    );
+    
+    // Démarrer la détection automatique toutes les 2 secondes
+    usbCardReaderService.startAutoDetection((detectedReaders) => {
+      if (detectedReaders.length > 0) {
+        setReaders(detectedReaders);
+        setScanning(false);
+        
+        Alert.alert(
+          'Lecteur détecté !',
+          `${detectedReaders.length} lecteur(s) USB trouvé(s). Sélectionnez-en un pour continuer.`,
+          [{ text: 'OK' }]
+        );
+        
+        // Arrêter la détection une fois trouvé
+        usbCardReaderService.stopAutoDetection();
+      }
+    }, 2000);
+  };
 
   // Scanner les lecteurs disponibles
   const handleScanReaders = async () => {
