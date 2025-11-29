@@ -29,6 +29,8 @@ export default function PaiementCarteJCOPScreen() {
   const [scanning, setScanning] = useState(false);
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
   const [error, setError] = useState<string>('');
+  const [cardStatus, setCardStatus] = useState<CardStatus | null>(null);
+  const [waitingForCard, setWaitingForCard] = useState(false);
 
   const currency = params.currency as string;
   const amount = parseFloat(params.amount as string);
