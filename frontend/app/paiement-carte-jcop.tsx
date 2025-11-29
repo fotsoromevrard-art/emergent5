@@ -15,6 +15,7 @@ import { COLORS, CURRENCY_NAMES } from '../config/constants';
 import { Ionicons } from '@expo/vector-icons';
 import jcopCardService, { CardReader, WalletInfo } from '../services/jcopCardService';
 import usbCardReaderService from '../services/usbCardReaderService';
+import cardDetectionService, { CardStatus } from '../services/cardDetectionService';
 
 type PaymentStep = 'select_reader' | 'connecting' | 'waiting_card' | 'reading_card' | 'processing' | 'checking_balance' | 'success' | 'declined';
 
