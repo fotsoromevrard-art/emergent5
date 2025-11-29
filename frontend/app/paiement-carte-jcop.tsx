@@ -693,5 +693,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center'
+  },
+  instructionBox: {
+    backgroundColor: '#E3F2FD',
+    padding: 20,
+    borderRadius: 12,
+    marginTop: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.secondary
+  },
+  instructionText: {
+    flex: 1,
+    fontSize: 14,
+    color: COLORS.dark,
+    marginLeft: 12,
+    lineHeight: 20
   }
 });
