@@ -108,17 +108,19 @@ export default function PaiementCarteJCOPScreen() {
       setSelectedReader(reader);
       setError('');
 
-      const connected = await jcopCardService.connectToReader(reader);
+      // Utiliser le service USB pour la connexion
+      const connected = await usbCardReaderService.connectToReader(reader);
       
       if (connected) {
+        Alert.alert('Connecté !', `Lecteur ${reader.name} connecté avec succès`);
         setStep('waiting_card');
       } else {
-        setError('Échec de la connexion au lecteur');
+        setError('Échec de la connexion au lecteur USB');
         setStep('select_reader');
       }
     } catch (err) {
       console.error('Erreur connexion:', err);
-      setError('Impossible de se connecter au lecteur');
+      setError('Impossible de se connecter au lecteur USB');
       setStep('select_reader');
     }
   };
