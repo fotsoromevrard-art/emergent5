@@ -480,46 +480,113 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20
   },
   modalContent: {
     backgroundColor: COLORS.white,
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 24,
     width: '100%',
     maxWidth: 400
   },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 16
+  },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: COLORS.dark,
-    marginBottom: 8
+    marginTop: 12,
+    textAlign: 'center'
   },
   modalDescription: {
     fontSize: 14,
     color: COLORS.gray,
-    marginBottom: 20
+    marginBottom: 20,
+    textAlign: 'center',
+    lineHeight: 20
+  },
+  inputContainer: {
+    marginBottom: 16
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.dark,
+    marginBottom: 8
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center'
   },
   modalInput: {
+    flex: 1,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 10,
+    padding: 14,
     fontSize: 14,
+    fontFamily: 'monospace',
+    backgroundColor: COLORS.light
+  },
+  pasteButton: {
+    padding: 14,
+    marginLeft: 8,
+    backgroundColor: COLORS.light,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border
+  },
+  inputError: {
+    fontSize: 12,
+    color: COLORS.danger,
+    marginTop: 6
+  },
+  inputValid: {
+    fontSize: 12,
+    color: COLORS.success,
+    marginTop: 6
+  },
+  infoCard: {
+    flexDirection: 'row',
+    backgroundColor: '#E0F2FE',
+    padding: 12,
+    borderRadius: 10,
     marginBottom: 20
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    color: COLORS.secondary,
+    marginLeft: 8,
+    lineHeight: 18
   },
   modalButton: {
     backgroundColor: COLORS.primary,
-    padding: 14,
-    borderRadius: 8,
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center'
+  },
+  modalButtonDisabled: {
+    backgroundColor: COLORS.gray,
+    opacity: 0.6
   },
   modalButtonText: {
     color: COLORS.white,
     fontSize: 16,
     fontWeight: '600'
+  },
+  cancelButton: {
+    padding: 14,
+    alignItems: 'center',
+    marginTop: 12
+  },
+  cancelButtonText: {
+    color: COLORS.gray,
+    fontSize: 14
   }
 });
