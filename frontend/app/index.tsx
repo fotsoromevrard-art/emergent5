@@ -130,12 +130,17 @@ export default function HomeScreen() {
 
         {/* Wallet Address */}
         {merchantAddress && (
-          <View style={styles.walletCard}>
-            <Text style={styles.walletLabel}>Wallet Marchand</Text>
+          <TouchableOpacity style={styles.walletCard} onPress={handleEditWallet}>
+            <View style={styles.walletHeader}>
+              <Ionicons name="wallet-outline" size={20} color={COLORS.primary} />
+              <Text style={styles.walletLabel}>Wallet Marchand (Metamask)</Text>
+              <Ionicons name="pencil-outline" size={16} color={COLORS.gray} />
+            </View>
             <Text style={styles.walletAddress}>
-              {merchantAddress.slice(0, 10)}...{merchantAddress.slice(-8)}
+              {merchantAddress.slice(0, 14)}...{merchantAddress.slice(-10)}
             </Text>
-          </View>
+            <Text style={styles.walletHint}>Appuyez pour modifier</Text>
+          </TouchableOpacity>
         )}
 
         {/* Balance Overview */}
