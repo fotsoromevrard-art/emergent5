@@ -74,8 +74,17 @@ export default function NouveauPaiementScreen() {
           amount: amount
         }
       });
+    } else if (method === 'card_br301') {
+      // Nouvelle page pour le lecteur bR301-BLE (Bluetooth & USB)
+      router.push({
+        pathname: '/paiement-carte-br301',
+        params: {
+          currency: selectedCurrency,
+          amount: amount
+        }
+      });
     } else {
-      // Card payment screen - JCOP
+      // Fallback vers l'ancienne page JCOP si besoin
       router.push({
         pathname: '/paiement-carte-jcop',
         params: {
