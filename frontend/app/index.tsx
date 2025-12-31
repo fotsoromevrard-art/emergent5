@@ -8,7 +8,9 @@ import {
   RefreshControl,
   Alert,
   TextInput,
-  Modal
+  Modal,
+  Clipboard,
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -23,6 +25,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [walletInput, setWalletInput] = useState('');
+  const [isValidating, setIsValidating] = useState(false);
 
   useEffect(() => {
     if (!merchantAddress && !loading) {
@@ -36,20 +39,65 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
+  // Valider le format d'une adresse Ethereum
+  const isValidEthAddress = (address: string): boolean => {
+    return /^0x[a-fA-F0-9]{40}$/.test(address);
+  };
+
   const handleSaveWallet = async () => {
-    if (!walletInput || walletInput.length !== 42) {
-      Alert.alert('Erreur', 'Adresse wallet invalide');
+    // Nettoyer l'adresse
+    const cleanAddress = walletInput.trim();
+
+    if (!cleanAddress) {
+      Alert.alert('Erreur', 'Veuillez entrer une adresse wallet');
       return;
     }
 
-    try {
-      await configureMerchantWallet(walletInput);
-      await setMerchantAddress(walletInput);
-      setShowWalletModal(false);
-      Alert.alert('Succès', 'Wallet marchand configuré');
-    } catch (error) {
-      Alert.alert('Erreur', 'Impossible de configurer le wallet');
+    if (!isValidEthAddress(cleanAddress)) {
+      Alert.alert(
+        'Adresse invalide',
+        'L\'adresse doit commencer par 0x et contenir 40 caractères hexadécimaux.\n\nExemple: 0x742d35Cc6634C0532925a3b844Bc454e4438f44e'
+      );
+      return;
     }
+
+    setIsValidating(true);
+    
+    try {
+      await configureMerchantWallet(cleanAddress);
+      await setMerchantAddress(cleanAddress);
+      setShowWalletModal(false);
+      setWalletInput('');
+      Alert.alert(
+        '✅ Configuration réussie',
+        'Votre wallet Metamask est configuré.\n\nTous les paiements reçus seront crédités sur cette adresse.'
+      );
+    } catch (error) {
+      Alert.alert('Erreur', 'Impossible de configurer le wallet. Réessayez.');
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handlePasteAddress = async () => {
+    try {
+      // Note: Clipboard API différente selon la plateforme
+      if (Platform.OS === 'web') {
+        const text = await navigator.clipboard.readText();
+        setWalletInput(text);
+      } else {
+        // Pour mobile, utiliser @react-native-clipboard/clipboard si installé
+        // Pour l'instant, afficher un message
+        Alert.alert('Coller', 'Collez votre adresse depuis le presse-papier');
+      }
+    } catch (error) {
+      console.log('Erreur clipboard:', error);
+    }
+  };
+
+  const handleEditWallet = () => {
+    setWalletInput(merchantAddress || '');
+    setShowWalletModal(true);
   };
 
   const getTotalBalance = () => {
