@@ -327,18 +327,33 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.border
+    borderColor: COLORS.primary,
+    borderStyle: 'dashed'
+  },
+  walletHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8
   },
   walletLabel: {
     fontSize: 12,
-    color: COLORS.gray,
-    marginBottom: 4
+    color: COLORS.primary,
+    marginLeft: 8,
+    flex: 1,
+    fontWeight: '500'
   },
   walletAddress: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: COLORS.dark,
-    fontFamily: 'monospace'
+    fontFamily: 'monospace',
+    letterSpacing: 0.5
+  },
+  walletHint: {
+    fontSize: 11,
+    color: COLORS.gray,
+    marginTop: 6,
+    fontStyle: 'italic'
   },
   balanceContainer: {
     backgroundColor: COLORS.secondary,
