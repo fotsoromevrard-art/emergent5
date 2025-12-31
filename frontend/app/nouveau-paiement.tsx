@@ -25,14 +25,7 @@ const PAYMENT_METHODS = [
     label: 'Lecteur de carte (bR301 BLE)', 
     icon: 'card',
     available: true,
-    message: 'Bluetooth & USB-C'
-  },
-  { 
-    key: 'crypto_link', 
-    label: 'Paiement par lien (Metamask)', 
-    icon: 'link',
-    available: true,
-    message: ''
+    message: 'ISO-7816 • Bluetooth & USB-C'
   }
 ];
 
