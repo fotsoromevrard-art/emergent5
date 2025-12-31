@@ -22,7 +22,7 @@ const CURRENCIES = [
 const PAYMENT_METHODS = [
   { 
     key: 'card_br301', 
-    label: 'Carte à puce (bR301-BLE)', 
+    label: 'Lecteur de carte (bR301 BLE)', 
     icon: 'card',
     available: true,
     message: 'Bluetooth & USB-C'
