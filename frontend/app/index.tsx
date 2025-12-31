@@ -214,25 +214,81 @@ export default function HomeScreen() {
         visible={showWalletModal}
         transparent
         animationType="slide"
-        onRequestClose={() => {}}
+        onRequestClose={() => merchantAddress && setShowWalletModal(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Configuration Wallet Marchand</Text>
+            <View style={styles.modalHeader}>
+              <Ionicons name="wallet" size={40} color={COLORS.primary} />
+              <Text style={styles.modalTitle}>Wallet Marchand</Text>
+            </View>
+            
             <Text style={styles.modalDescription}>
-              Entrez votre adresse Metamask pour recevoir les paiements
+              Entrez l'adresse de votre portefeuille Metamask.{'\n'}
+              C'est sur cette adresse que vous recevrez tous les paiements.
             </Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="0x..."
-              value={walletInput}
-              onChangeText={setWalletInput}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TouchableOpacity style={styles.modalButton} onPress={handleSaveWallet}>
-              <Text style={styles.modalButtonText}>Enregistrer</Text>
+            
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Adresse Metamask (BSC)</Text>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="0x742d35Cc6634C0532925a3b..."
+                  value={walletInput}
+                  onChangeText={setWalletInput}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  placeholderTextColor={COLORS.gray}
+                />
+                {Platform.OS === 'web' && (
+                  <TouchableOpacity style={styles.pasteButton} onPress={handlePasteAddress}>
+                    <Ionicons name="clipboard-outline" size={20} color={COLORS.primary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              {walletInput.length > 0 && !isValidEthAddress(walletInput) && (
+                <Text style={styles.inputError}>
+                  Format invalide. L'adresse doit commencer par 0x et avoir 42 caractères.
+                </Text>
+              )}
+              {walletInput.length > 0 && isValidEthAddress(walletInput) && (
+                <Text style={styles.inputValid}>
+                  ✓ Adresse valide
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.infoCard}>
+              <Ionicons name="information-circle" size={20} color={COLORS.secondary} />
+              <Text style={styles.infoText}>
+                Réseau: BNB Smart Chain (BSC){'\n'}
+                Devises supportées: XAF, EUROM, TND
+              </Text>
+            </View>
+            
+            <TouchableOpacity 
+              style={[
+                styles.modalButton, 
+                (!walletInput || !isValidEthAddress(walletInput) || isValidating) && styles.modalButtonDisabled
+              ]} 
+              onPress={handleSaveWallet}
+              disabled={!walletInput || !isValidEthAddress(walletInput) || isValidating}
+            >
+              {isValidating ? (
+                <Text style={styles.modalButtonText}>Validation...</Text>
+              ) : (
+                <Text style={styles.modalButtonText}>Enregistrer</Text>
+              )}
             </TouchableOpacity>
+            
+            {merchantAddress && (
+              <TouchableOpacity 
+                style={styles.cancelButton} 
+                onPress={() => setShowWalletModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Annuler</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </Modal>
