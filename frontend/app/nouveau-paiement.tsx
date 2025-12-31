@@ -50,40 +50,15 @@ export default function NouveauPaiementScreen() {
   };
 
   const handleMethodSelect = (method: string) => {
-    const paymentMethod = PAYMENT_METHODS.find(m => m.key === method);
-    
     setSelectedMethod(method);
     
-    // Redirect to appropriate payment screen
-    if (method === 'crypto_link') {
-      if (!paymentMethod?.available) {
-        Alert.alert('Non disponible', paymentMethod?.message || 'Cette méthode n\'est pas encore disponible');
-        return;
-      }
-      router.push({
-        pathname: '/paiement-lien',
-        params: {
-          currency: selectedCurrency,
-          amount: amount
-        }
-      });
-    } else if (method === 'card_br301') {
-      // Nouvelle page pour le lecteur bR301-BLE (Bluetooth & USB)
+    // Seul le paiement par carte bR301 est disponible
+    if (method === 'card_br301') {
       router.push({
         pathname: '/paiement-carte-br301',
         params: {
           currency: selectedCurrency,
           amount: amount
-        }
-      });
-    } else {
-      // Fallback vers l'ancienne page JCOP si besoin
-      router.push({
-        pathname: '/paiement-carte-jcop',
-        params: {
-          currency: selectedCurrency,
-          amount: amount,
-          method: method
         }
       });
     }
