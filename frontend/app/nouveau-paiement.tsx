@@ -21,25 +21,11 @@ const CURRENCIES = [
 
 const PAYMENT_METHODS = [
   { 
-    key: 'card_contact', 
-    label: 'Carte à puce (contact)', 
+    key: 'card_br301', 
+    label: 'Carte à puce (bR301-BLE)', 
     icon: 'card',
     available: true,
-    message: 'Mode simulation'
-  },
-  { 
-    key: 'card_usb', 
-    label: 'Carte via câble USB-C', 
-    icon: 'hardware-chip',
-    available: true,
-    message: 'Mode simulation'
-  },
-  { 
-    key: 'card_bluetooth', 
-    label: 'Carte via Bluetooth', 
-    icon: 'bluetooth',
-    available: true,
-    message: 'Mode simulation'
+    message: 'Bluetooth & USB-C'
   },
   { 
     key: 'crypto_link', 
