@@ -107,17 +107,27 @@ export default function HomeScreen() {
     
     try {
       await configureMerchantWallet(cleanAddress);
-      await setMerchantAddress(cleanAddress);
+      await setMerchantAddress(cleanAddress, chosenNetwork);
       setShowWalletModal(false);
       setWalletInput('');
+      setValidationResult(null);
+      
+      const networkName = chosenNetwork === 'bsc' ? 'BNB Smart Chain' : 'Ethereum';
       Alert.alert(
         '✅ Configuration réussie',
-        'Votre wallet Metamask est configuré.\n\nTous les paiements reçus seront crédités sur cette adresse.'
+        `Votre wallet est configuré sur ${networkName}.\n\nTous les paiements reçus seront crédités sur cette adresse.`
       );
     } catch (error) {
       Alert.alert('Erreur', 'Impossible de configurer le wallet. Réessayez.');
     } finally {
       setIsValidating(false);
+    }
+  };
+
+  const handleOpenExplorer = () => {
+    if (walletInput && isValidEthAddress(walletInput)) {
+      const url = blockchainValidationService.getExplorerUrl(walletInput, chosenNetwork);
+      Linking.openURL(url);
     }
   };
 
