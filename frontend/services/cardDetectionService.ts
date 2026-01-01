@@ -1,400 +1,325 @@
 /**
- * Card Detection Service - Détection RÉELLE de carte via USB
- * Surveille le lecteur en temps réel pour détecter l'insertion de carte
+ * Service de détection et validation des cartes
+ * 
+ * Gère la détection de 3 types de cartes :
+ * 1. Carte JCOP Infineon SLE78 programmée (avec applet crypto) → ACCEPTÉE
+ * 2. Carte JCOP vierge (sans applet) → REJETÉE
+ * 3. Carte bancaire Visa/Mastercard → REFUSÉE (non conforme)
+ * 
+ * Caractéristiques cartes supportées :
+ * - NVM totale : 400 Ko
+ * - RAM totale : 8 Ko
+ * - Puce : Infineon SLE78CLFX4000PM
+ * - Certification : CC EAL6+, EMVCo, FIPS 140-2 Level 3
  */
 
-import usbCardReaderService from './usbCardReaderService';
+// =============== TYPES ===============
 
-// Types
-export interface CardStatus {
-  present: boolean;           // Carte présente ?
-  functional: boolean;        // Carte fonctionnelle ?
-  atr: string | null;        // ATR (Answer To Reset)
-  cardType: string | null;   // Type de carte détecté
-  error: string | null;      // Message d'erreur
+export type CardType = 
+  | 'JCOP_PROGRAMMED'    // Carte JCOP avec applet crypto installé
+  | 'JCOP_EMPTY'         // Carte JCOP vierge sans applet
+  | 'VISA_MASTERCARD'    // Carte bancaire (non conforme)
+  | 'UNKNOWN';           // Carte non reconnue
+
+export type CardValidationResult = 
+  | 'VALID'              // Carte valide pour paiement
+  | 'REJECTED_EMPTY'     // Rejetée: carte vierge
+  | 'REJECTED_BANKING'   // Refusée: carte bancaire non conforme
+  | 'REJECTED_UNKNOWN';  // Rejetée: carte non reconnue
+
+export interface CardDetectionResult {
+  type: CardType;
+  validation: CardValidationResult;
+  atr: string;
+  message: string;
+  details: {
+    isJCOP: boolean;
+    isInfineon: boolean;
+    hasApplet: boolean;
+    isBankingCard: boolean;
+    chipInfo?: string;
+  };
 }
 
-// Commandes APDU PC/SC pour détection
-const APDU_COMMANDS = {
-  // Get Status - Vérifier l'état du lecteur
-  GET_STATUS: new Uint8Array([0xFF, 0x00, 0x00, 0x00, 0x00]),
+export interface JCOPCardInfo {
+  // Caractéristiques attendues de la carte Infineon SLE78
+  nvmTotal: number;      // 400 Ko
+  ramTotal: number;      // 8 Ko
+  nvmUser: number;       // 138.5 Ko
+  ramUser: number;       // 1.84 Ko
+  chip: string;          // Infineon SLE78CLFX4000PM
+  certificationChip: string;   // CC EAL6+, EMVCo
+  certificationOS: string;     // FIPS 140-2 Level 3
+}
+
+// =============== CONSTANTES ATR ===============
+
+// Préfixes ATR connus pour identifier les types de cartes
+const ATR_PATTERNS = {
+  // Cartes JCOP / JavaCard (Infineon, NXP, etc.)
+  JCOP_INFINEON: [
+    '3B 68',           // Infineon SLE78 series
+    '3B 69',           // Infineon variants
+    '3B 8F',           // JCOP generic
+    '3B 88',           // JCOP 2.4.x
+    '3B F8',           // JCOP 3.x
+    '3B 7F',           // Infineon contactless
+  ],
   
-  // Power On - Activer la carte et obtenir ATR
-  POWER_ON: new Uint8Array([0xFF, 0x10, 0x00, 0x00, 0x00]),
+  // Cartes bancaires Visa/Mastercard (EMV)
+  VISA_MASTERCARD: [
+    '3B 6E',           // Visa cards
+    '3B 6D',           // Mastercard cards
+    '3B 67',           // EMV banking cards
+    '3B 9F',           // EMV chip cards
+    '3B 7D',           // Banking cards
+    '3B 7E',           // Payment cards
+    '3B 6F 00 00 80',  // Visa specific
+    '3B 67 00 00 00 00 00 00 00',  // Mastercard specific
+  ],
   
-  // Get ATR - Obtenir l'ATR de la carte
-  GET_ATR: new Uint8Array([0xFF, 0xCA, 0x00, 0x00, 0x00]),
-  
-  // Select - Tester communication
-  SELECT_TEST: new Uint8Array([0x00, 0xA4, 0x04, 0x00, 0x00])
+  // Identifiants RID des réseaux de paiement (à NE PAS sélectionner)
+  PAYMENT_AIDS: [
+    'A0 00 00 00 03',  // Visa International
+    'A0 00 00 00 04',  // Mastercard
+    'A0 00 00 00 05',  // Mastercard (Maestro)
+    'A0 00 00 00 25',  // American Express
+    'A0 00 00 00 65',  // JCB
+    'A0 00 00 01 52',  // Discover
+    'A0 00 00 03 33',  // UnionPay
+  ]
 };
 
+// AID de l'applet wallet crypto (notre applet personnalisé)
+const CRYPTO_WALLET_AID = 'A0 00 00 00 62 03 01 0C 06 01';
+
+// =============== CLASSE PRINCIPALE ===============
+
 class CardDetectionService {
-  private detectionInterval: NodeJS.Timeout | null = null;
-  private isDetecting: boolean = false;
-  private lastStatus: CardStatus | null = null;
-  private onCardDetectedCallback: ((status: CardStatus) => void) | null = null;
-  private onCardRemovedCallback: (() => void) | null = null;
-
-  // =============== DÉTECTION AUTOMATIQUE ===============
-
+  
   /**
-   * Démarrer la surveillance en continu du lecteur
-   * Détecte automatiquement l'insertion/retrait de carte
+   * Analyser l'ATR pour déterminer le type de carte
    */
-  startCardDetection(
-    onCardDetected: (status: CardStatus) => void,
-    onCardRemoved: () => void,
-    intervalMs: number = 500 // Vérifier toutes les 500ms
-  ) {
-    if (this.isDetecting) {
-      console.log('Détection déjà en cours');
-      return;
-    }
-
-    console.log('🔍 Démarrage détection automatique de carte...');
-    this.isDetecting = true;
-    this.onCardDetectedCallback = onCardDetected;
-    this.onCardRemovedCallback = onCardRemoved;
-
-    // Premier check immédiat
-    this.checkCardPresence();
-
-    // Check périodique
-    this.detectionInterval = setInterval(() => {
-      this.checkCardPresence();
-    }, intervalMs);
-  }
-
-  /**
-   * Arrêter la surveillance
-   */
-  stopCardDetection() {
-    if (this.detectionInterval) {
-      clearInterval(this.detectionInterval);
-      this.detectionInterval = null;
-    }
-    this.isDetecting = false;
-    this.lastStatus = null;
-    console.log('🛑 Détection de carte arrêtée');
-  }
-
-  // =============== VÉRIFICATION PRÉSENCE CARTE ===============
-
-  /**
-   * Vérifier si une carte est présente dans le lecteur
-   */
-  private async checkCardPresence() {
-    try {
-      // Vérifier qu'un lecteur est connecté
-      if (!usbCardReaderService.isConnected()) {
-        return;
-      }
-
-      // Envoyer commande Get Status
-      const statusResponse = await this.sendCommand(APDU_COMMANDS.GET_STATUS);
-      
-      // Analyser la réponse
-      const cardStatus = this.analyzeStatusResponse(statusResponse);
-
-      // Comparer avec le statut précédent
-      if (this.hasStatusChanged(cardStatus)) {
-        if (cardStatus.present && !this.lastStatus?.present) {
-          // Carte insérée !
-          console.log('✅ Carte détectée !');
-          if (this.onCardDetectedCallback) {
-            this.onCardDetectedCallback(cardStatus);
-          }
-        } else if (!cardStatus.present && this.lastStatus?.present) {
-          // Carte retirée !
-          console.log('❌ Carte retirée');
-          if (this.onCardRemovedCallback) {
-            this.onCardRemovedCallback();
-          }
-        }
-
-        this.lastStatus = cardStatus;
-      }
-    } catch (error) {
-      console.error('Erreur vérification carte:', error);
-    }
-  }
-
-  /**
-   * Comparer deux statuts pour détecter changement
-   */
-  private hasStatusChanged(newStatus: CardStatus): boolean {
-    if (!this.lastStatus) return true;
-    return this.lastStatus.present !== newStatus.present;
-  }
-
-  // =============== COMMANDES APDU ===============
-
-  /**
-   * Envoyer une commande APDU au lecteur
-   */
-  private async sendCommand(command: Uint8Array): Promise<Uint8Array> {
-    try {
-      const response = await usbCardReaderService.sendCommand(command);
-      return response;
-    } catch (error) {
-      console.error('Erreur envoi commande:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Analyser la réponse du Get Status
-   */
-  private analyzeStatusResponse(response: Uint8Array): CardStatus {
-    // Analyser les bytes de réponse
-    // Format typique: [Status Bytes] + [SW1] + [SW2]
+  analyzeATR(atr: string): {
+    isJCOP: boolean;
+    isInfineon: boolean;
+    isBankingCard: boolean;
+    chipType: string | null;
+  } {
+    const atrClean = atr.toUpperCase().replace(/\s+/g, ' ').trim();
     
-    const len = response.length;
-    if (len < 2) {
+    // Vérifier si c'est une carte bancaire Visa/Mastercard
+    const isBankingCard = ATR_PATTERNS.VISA_MASTERCARD.some(pattern => 
+      atrClean.startsWith(pattern.toUpperCase().replace(/\s+/g, ' '))
+    );
+    
+    if (isBankingCard) {
       return {
-        present: false,
-        functional: false,
-        atr: null,
-        cardType: null,
-        error: 'Réponse invalide'
+        isJCOP: false,
+        isInfineon: false,
+        isBankingCard: true,
+        chipType: this.detectBankingCardType(atrClean)
       };
     }
-
-    const sw1 = response[len - 2];
-    const sw2 = response[len - 1];
-
-    // SW1=0x90 SW2=0x00 = Succès
-    if (sw1 === 0x90 && sw2 === 0x00) {
-      // Carte présente et fonctionnelle
-      return {
-        present: true,
-        functional: true,
-        atr: null,
-        cardType: 'Smart Card',
-        error: null
-      };
-    }
-
-    // SW1=0x62 ou 0x63 = Carte présente mais avertissement
-    if (sw1 === 0x62 || sw1 === 0x63) {
-      return {
-        present: true,
-        functional: true,
-        atr: null,
-        cardType: 'Smart Card',
-        error: 'Avertissement carte'
-      };
-    }
-
-    // SW1=0x6A SW2=0x81 = Fonction non supportée (pas de carte)
-    if (sw1 === 0x6A && sw2 === 0x81) {
-      return {
-        present: false,
-        functional: false,
-        atr: null,
-        cardType: null,
-        error: null
-      };
-    }
-
-    // Autres codes = erreur ou pas de carte
+    
+    // Vérifier si c'est une carte JCOP/Infineon
+    const isJCOP = ATR_PATTERNS.JCOP_INFINEON.some(pattern =>
+      atrClean.startsWith(pattern.toUpperCase().replace(/\s+/g, ' '))
+    );
+    
+    // Détecter spécifiquement Infineon SLE78
+    const isInfineon = atrClean.includes('3B 68') || 
+                       atrClean.includes('3B 69') ||
+                       atrClean.includes('3B 7F');
+    
     return {
-      present: false,
-      functional: false,
-      atr: null,
-      cardType: null,
-      error: `Erreur SW: ${sw1.toString(16)} ${sw2.toString(16)}`
+      isJCOP,
+      isInfineon,
+      isBankingCard: false,
+      chipType: isInfineon ? 'Infineon SLE78CLFX4000PM' : (isJCOP ? 'JCOP Generic' : null)
     };
   }
-
-  // =============== OBTENIR ATR ===============
-
+  
   /**
-   * Obtenir l'ATR (Answer To Reset) de la carte
-   * L'ATR identifie le type de carte
+   * Détecter le type de carte bancaire (pour le message d'erreur)
    */
-  async getCardATR(): Promise<string | null> {
-    try {
-      // Commande Power On pour activer la carte
-      const powerResponse = await this.sendCommand(APDU_COMMANDS.POWER_ON);
-      
-      // L'ATR est dans la réponse (avant les status words)
-      const atr = this.extractATR(powerResponse);
-      
-      if (atr) {
-        console.log('ATR reçu:', atr);
-        return atr;
-      }
-
-      // Sinon, essayer Get ATR
-      const atrResponse = await this.sendCommand(APDU_COMMANDS.GET_ATR);
-      return this.extractATR(atrResponse);
-    } catch (error) {
-      console.error('Erreur obtention ATR:', error);
-      return null;
+  private detectBankingCardType(atr: string): string {
+    if (atr.includes('3B 6E') || atr.includes('A0 00 00 00 03')) {
+      return 'Visa';
     }
+    if (atr.includes('3B 6D') || atr.includes('3B 67') || atr.includes('A0 00 00 00 04')) {
+      return 'Mastercard';
+    }
+    if (atr.includes('A0 00 00 00 25')) {
+      return 'American Express';
+    }
+    return 'Carte bancaire EMV';
   }
-
+  
   /**
-   * Extraire l'ATR des bytes de réponse
+   * Vérifier si un AID correspond à un réseau de paiement bancaire
+   * IMPORTANT: Ne jamais tenter de sélectionner ces AIDs
    */
-  private extractATR(response: Uint8Array): string | null {
-    if (response.length < 4) return null;
-
-    // L'ATR est avant les 2 derniers bytes (SW1 SW2)
-    const atrBytes = response.slice(0, response.length - 2);
+  isBankingAID(aid: string): boolean {
+    const aidClean = aid.toUpperCase().replace(/\s+/g, ' ').trim();
+    return ATR_PATTERNS.PAYMENT_AIDS.some(pattern =>
+      aidClean.startsWith(pattern.toUpperCase().replace(/\s+/g, ' '))
+    );
+  }
+  
+  /**
+   * Détecter et valider une carte insérée
+   * @param atr - L'ATR de la carte
+   * @param hasWalletApplet - Résultat de la tentative de sélection de l'applet crypto
+   */
+  detectAndValidate(atr: string, hasWalletApplet: boolean): CardDetectionResult {
+    const analysis = this.analyzeATR(atr);
     
-    if (atrBytes.length === 0) return null;
-
-    // Convertir en hex string
-    return Array.from(atrBytes)
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join(' ')
-      .toUpperCase();
-  }
-
-  // =============== VÉRIFICATION FONCTIONNELLE ===============
-
-  /**
-   * Tester si la carte répond correctement
-   */
-  async testCardCommunication(): Promise<boolean> {
-    try {
-      // Envoyer une commande SELECT simple
-      const response = await this.sendCommand(APDU_COMMANDS.SELECT_TEST);
-      
-      const len = response.length;
-      if (len < 2) return false;
-
-      const sw1 = response[len - 2];
-      const sw2 = response[len - 1];
-
-      // Succès ou fichier non trouvé (normal pour un test)
-      return (sw1 === 0x90 && sw2 === 0x00) || 
-             (sw1 === 0x6A && sw2 === 0x82);
-    } catch (error) {
-      console.error('Erreur test communication:', error);
-      return false;
-    }
-  }
-
-  // =============== DÉTECTION COMPLÈTE ===============
-
-  /**
-   * Analyse complète de la carte
-   * Appelé automatiquement quand une carte est détectée
-   */
-  async analyzeCard(): Promise<CardStatus> {
-    try {
-      console.log('🔍 Analyse de la carte...');
-
-      // 1. Obtenir l'ATR
-      const atr = await this.getCardATR();
-      
-      if (!atr) {
-        return {
-          present: true,
-          functional: false,
-          atr: null,
-          cardType: null,
-          error: 'Impossible de lire l\'ATR'
-        };
-      }
-
-      // 2. Tester la communication
-      const communicates = await this.testCardCommunication();
-
-      // 3. Identifier le type de carte d'après l'ATR
-      const cardType = this.identifyCardType(atr);
-
+    // CAS 1: Carte bancaire Visa/Mastercard → REFUS IMMÉDIAT
+    if (analysis.isBankingCard) {
       return {
-        present: true,
-        functional: communicates,
+        type: 'VISA_MASTERCARD',
+        validation: 'REJECTED_BANKING',
         atr: atr,
-        cardType: cardType,
-        error: communicates ? null : 'Carte ne répond pas'
+        message: `🚫 CARTE NON CONFORME\n\nCette carte ${analysis.chipType} n'est pas compatible avec le système de paiement crypto.\n\nSeules les cartes programmées avec l'applet wallet crypto sont acceptées.`,
+        details: {
+          isJCOP: false,
+          isInfineon: false,
+          hasApplet: false,
+          isBankingCard: true,
+          chipInfo: analysis.chipType || undefined
+        }
       };
-    } catch (error) {
-      console.error('Erreur analyse carte:', error);
+    }
+    
+    // CAS 2: Carte JCOP sans applet → REJET
+    if (analysis.isJCOP && !hasWalletApplet) {
       return {
-        present: true,
-        functional: false,
-        atr: null,
-        cardType: null,
-        error: 'Erreur lors de l\'analyse'
+        type: 'JCOP_EMPTY',
+        validation: 'REJECTED_EMPTY',
+        atr: atr,
+        message: `❌ CARTE NON PROGRAMMÉE\n\nCette carte ${analysis.isInfineon ? 'Infineon SLE78' : 'JCOP'} n'a pas été programmée avec l'applet wallet crypto.\n\nVeuillez utiliser une carte configurée via l'écosystème crypto.`,
+        details: {
+          isJCOP: true,
+          isInfineon: analysis.isInfineon,
+          hasApplet: false,
+          isBankingCard: false,
+          chipInfo: analysis.chipType || undefined
+        }
       };
     }
-  }
-
-  /**
-   * Identifier le type de carte d'après l'ATR
-   */
-  private identifyCardType(atr: string): string {
-    const atrLower = atr.toLowerCase().replace(/\s/g, '');
-
-    // JCOP cards (NXP)
-    if (atrLower.includes('3b68') || atrLower.includes('3b80')) {
-      return 'JCOP Java Card';
+    
+    // CAS 3: Carte JCOP avec applet → ACCEPTÉE
+    if (analysis.isJCOP && hasWalletApplet) {
+      return {
+        type: 'JCOP_PROGRAMMED',
+        validation: 'VALID',
+        atr: atr,
+        message: `✅ CARTE VALIDE\n\nCarte ${analysis.isInfineon ? 'Infineon SLE78' : 'JCOP'} avec applet crypto détecté.`,
+        details: {
+          isJCOP: true,
+          isInfineon: analysis.isInfineon,
+          hasApplet: true,
+          isBankingCard: false,
+          chipInfo: analysis.chipType || undefined
+        }
+      };
     }
-
-    // Gemalto
-    if (atrLower.includes('3b7d') || atrLower.includes('3b7f')) {
-      return 'Gemalto Card';
-    }
-
-    // MIFARE
-    if (atrLower.includes('3b8f') || atrLower.includes('3b8c')) {
-      return 'MIFARE Card';
-    }
-
-    // Generic
-    if (atrLower.startsWith('3b')) {
-      return 'ISO 7816 Smart Card';
-    }
-
-    return 'Unknown Card Type';
-  }
-
-  // =============== MÉTHODE PUBLIQUE POUR DÉTECTION UNIQUE ===============
-
-  /**
-   * Vérification unique (sans surveillance continue)
-   * Utile pour un check ponctuel
-   */
-  async checkCardNow(): Promise<CardStatus> {
-    try {
-      const statusResponse = await this.sendCommand(APDU_COMMANDS.GET_STATUS);
-      const status = this.analyzeStatusResponse(statusResponse);
-
-      if (status.present && status.functional) {
-        // Analyse complète
-        return await this.analyzeCard();
+    
+    // CAS 4: Carte inconnue → REJET
+    return {
+      type: 'UNKNOWN',
+      validation: 'REJECTED_UNKNOWN',
+      atr: atr,
+      message: `⚠️ CARTE NON RECONNUE\n\nCette carte n'est pas reconnue par le système.\n\nATR: ${atr}\n\nUtilisez une carte JCOP Infineon SLE78 programmée.`,
+      details: {
+        isJCOP: false,
+        isInfineon: false,
+        hasApplet: false,
+        isBankingCard: false
       }
-
-      return status;
-    } catch (error) {
-      console.error('Erreur check carte:', error);
-      return {
-        present: false,
-        functional: false,
-        atr: null,
-        cardType: null,
-        error: 'Erreur de communication'
-      };
+    };
+  }
+  
+  /**
+   * Obtenir les caractéristiques attendues de la carte Infineon SLE78
+   */
+  getExpectedCardSpecs(): JCOPCardInfo {
+    return {
+      nvmTotal: 400,           // Ko
+      ramTotal: 8,             // Ko
+      nvmUser: 138.5,          // Ko
+      ramUser: 1.84,           // Ko
+      chip: 'Infineon SLE78CLFX4000PM',
+      certificationChip: 'CC EAL6+, EMVCo',
+      certificationOS: 'FIPS 140-2 Level 3'
+    };
+  }
+  
+  /**
+   * Obtenir le message d'erreur approprié selon le type de rejet
+   */
+  getErrorMessage(validation: CardValidationResult): {
+    title: string;
+    message: string;
+    icon: string;
+  } {
+    switch (validation) {
+      case 'REJECTED_BANKING':
+        return {
+          title: 'Carte bancaire détectée',
+          message: 'Les cartes Visa, Mastercard et autres cartes bancaires ne sont pas compatibles avec ce terminal.\n\nUtilisez uniquement une carte crypto programmée.',
+          icon: 'card-outline'
+        };
+        
+      case 'REJECTED_EMPTY':
+        return {
+          title: 'Carte non programmée',
+          message: 'Cette carte JCOP n\'a pas été configurée avec l\'applet wallet crypto.\n\nContactez votre fournisseur pour programmer la carte.',
+          icon: 'alert-circle-outline'
+        };
+        
+      case 'REJECTED_UNKNOWN':
+        return {
+          title: 'Carte non reconnue',
+          message: 'Cette carte n\'est pas compatible avec le système.\n\nUtilisez une carte Infineon SLE78 programmée.',
+          icon: 'help-circle-outline'
+        };
+        
+      default:
+        return {
+          title: 'Erreur',
+          message: 'Une erreur est survenue lors de la lecture de la carte.',
+          icon: 'close-circle-outline'
+        };
     }
   }
-
-  // =============== GETTERS ===============
-
-  isDetecting(): boolean {
-    return this.isDetecting;
+  
+  /**
+   * Vérifier si l'ATR correspond à une carte Infineon SLE78
+   */
+  isInfineonSLE78(atr: string): boolean {
+    const atrClean = atr.toUpperCase().replace(/\s+/g, ' ');
+    // ATR typiques des Infineon SLE78
+    return atrClean.startsWith('3B 68') || 
+           atrClean.startsWith('3B 69') ||
+           atrClean.startsWith('3B 7F') ||
+           atrClean.includes('SLE78');
   }
-
-  getLastStatus(): CardStatus | null {
-    return this.lastStatus;
+  
+  /**
+   * Formater l'ATR pour affichage
+   */
+  formatATR(atr: string): string {
+    return atr.toUpperCase()
+      .replace(/[^0-9A-F]/g, '')
+      .match(/.{1,2}/g)
+      ?.join(' ') || atr;
   }
 }
 
 // Export singleton
 export default new CardDetectionService();
+
+// Export des constantes pour utilisation externe
+export { ATR_PATTERNS, CRYPTO_WALLET_AID };
