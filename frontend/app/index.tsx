@@ -18,7 +18,6 @@ import { useRouter } from 'expo-router';
 import { useWallet } from '../context/WalletContext';
 import { COLORS, CURRENCY_NAMES } from '../config/constants';
 import { Ionicons } from '@expo/vector-icons';
-import { configureMerchantWallet } from '../services/api';
 import blockchainValidationService, { 
   NetworkType, 
   AddressValidation,
