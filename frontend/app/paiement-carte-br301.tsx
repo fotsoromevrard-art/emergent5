@@ -486,8 +486,87 @@ export default function PaiementCarteBR301Screen() {
       {cardInfo?.atr && (
         <Text style={styles.atrText}>ATR: {cardInfo.atr}</Text>
       )}
+      {cardDetectionResult && (
+        <View style={styles.cardTypeInfo}>
+          <Text style={styles.cardTypeText}>
+            Type: {cardDetectionResult.details.isInfineon ? 'Infineon SLE78' : 'JCOP'}
+          </Text>
+        </View>
+      )}
     </View>
   );
+
+  const renderDetectingCard = () => (
+    <View style={styles.centerContainer}>
+      <ActivityIndicator size="large" color={COLORS.primary} />
+      <Text style={styles.detectingTitle}>Détection de la carte...</Text>
+      <Text style={styles.detectingSubtitle}>Vérification du type et de la programmation</Text>
+      {cardInfo?.atr && (
+        <Text style={styles.atrText}>ATR: {cardInfo.atr}</Text>
+      )}
+    </View>
+  );
+
+  const renderCardRejected = () => {
+    const errorInfo = cardDetectionResult 
+      ? cardDetectionService.getErrorMessage(cardDetectionResult.validation)
+      : { title: 'Carte rejetée', message: error, icon: 'alert-circle' };
+    
+    // Déterminer l'icône et la couleur selon le type de rejet
+    const isBankingCard = cardDetectionResult?.type === 'VISA_MASTERCARD';
+    const iconName = isBankingCard ? 'card-outline' : 'alert-circle';
+    const iconColor = isBankingCard ? COLORS.danger : COLORS.warning;
+    
+    return (
+      <View style={styles.centerContainer}>
+        <View style={[styles.rejectedIcon, { backgroundColor: isBankingCard ? '#FEE2E2' : '#FEF3C7' }]}>
+          <Ionicons name={iconName as any} size={80} color={iconColor} />
+        </View>
+        
+        <Text style={[styles.rejectedTitle, { color: iconColor }]}>
+          {isBankingCard ? 'CARTE NON CONFORME' : 'CARTE REJETÉE'}
+        </Text>
+        
+        <Text style={styles.rejectedSubtitle}>{errorInfo.title}</Text>
+        
+        <View style={styles.rejectedMessageBox}>
+          <Text style={styles.rejectedMessage}>{errorInfo.message}</Text>
+        </View>
+        
+        {cardDetectionResult?.atr && (
+          <View style={styles.atrContainer}>
+            <Text style={styles.atrLabel}>ATR détecté:</Text>
+            <Text style={styles.atrValue}>{cardDetectionResult.atr}</Text>
+          </View>
+        )}
+        
+        {isBankingCard && (
+          <View style={styles.warningBox}>
+            <Ionicons name="warning" size={20} color={COLORS.danger} />
+            <Text style={styles.warningText}>
+              Les cartes bancaires Visa/Mastercard ne sont pas compatibles avec ce terminal de paiement crypto.
+            </Text>
+          </View>
+        )}
+        
+        <View style={styles.expectedCardInfo}>
+          <Text style={styles.expectedCardTitle}>Carte attendue:</Text>
+          <Text style={styles.expectedCardText}>• Infineon SLE78CLFX4000PM</Text>
+          <Text style={styles.expectedCardText}>• Programmée avec applet crypto</Text>
+          <Text style={styles.expectedCardText}>• Certification FIPS 140-2 Level 3</Text>
+        </View>
+        
+        <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+          <Ionicons name="refresh" size={20} color={COLORS.white} />
+          <Text style={styles.retryButtonText}>Essayer une autre carte</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+          <Text style={styles.cancelButtonText}>Annuler</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   const renderProcessing = () => (
     <View style={styles.centerContainer}>
