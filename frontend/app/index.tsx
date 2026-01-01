@@ -619,7 +619,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20
+    padding: 16
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 4
   },
   modalContent: {
     backgroundColor: COLORS.white,
@@ -645,6 +651,41 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
     lineHeight: 20
+  },
+  networkSelector: {
+    marginBottom: 16
+  },
+  networkButtons: {
+    flexDirection: 'row',
+    gap: 12
+  },
+  networkButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.white
+  },
+  networkButtonActive: {
+    backgroundColor: COLORS.light
+  },
+  networkDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8
+  },
+  networkButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.gray
+  },
+  networkButtonTextActive: {
+    color: COLORS.dark
   },
   inputContainer: {
     marginBottom: 16
@@ -687,6 +728,61 @@ const styles = StyleSheet.create({
     color: COLORS.success,
     marginTop: 6
   },
+  validatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8
+  },
+  validatingText: {
+    fontSize: 12,
+    color: COLORS.primary,
+    marginLeft: 8
+  },
+  validationResult: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: COLORS.light,
+    borderRadius: 10
+  },
+  validationSuccess: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  validationSuccessText: {
+    fontSize: 13,
+    color: COLORS.success,
+    marginLeft: 6,
+    fontWeight: '500'
+  },
+  addressStats: {
+    marginTop: 8,
+    paddingLeft: 24
+  },
+  statText: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginTop: 4
+  },
+  explorerLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingLeft: 24
+  },
+  explorerLinkText: {
+    fontSize: 12,
+    color: COLORS.primary,
+    marginLeft: 4
+  },
+  validationWarning: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  validationWarningText: {
+    fontSize: 13,
+    color: COLORS.warning,
+    marginLeft: 6
+  },
   infoCard: {
     flexDirection: 'row',
     backgroundColor: '#E0F2FE',
@@ -700,6 +796,11 @@ const styles = StyleSheet.create({
     color: COLORS.secondary,
     marginLeft: 8,
     lineHeight: 18
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   modalButton: {
     backgroundColor: COLORS.primary,
