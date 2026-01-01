@@ -997,6 +997,116 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace'
   },
+  cardTypeInfo: {
+    marginTop: 12,
+    padding: 8,
+    backgroundColor: COLORS.light,
+    borderRadius: 8
+  },
+  cardTypeText: {
+    fontSize: 12,
+    color: COLORS.secondary
+  },
+
+  // Detecting
+  detectingTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: COLORS.dark,
+    marginTop: 20
+  },
+  detectingSubtitle: {
+    fontSize: 14,
+    color: COLORS.gray,
+    marginTop: 8
+  },
+
+  // Card Rejected
+  rejectedIcon: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20
+  },
+  rejectedTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 8
+  },
+  rejectedSubtitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.dark,
+    marginBottom: 16
+  },
+  rejectedMessageBox: {
+    backgroundColor: COLORS.light,
+    padding: 16,
+    borderRadius: 12,
+    width: '100%',
+    marginBottom: 16
+  },
+  rejectedMessage: {
+    fontSize: 14,
+    color: COLORS.gray,
+    textAlign: 'center',
+    lineHeight: 20
+  },
+  atrContainer: {
+    backgroundColor: COLORS.white,
+    padding: 12,
+    borderRadius: 8,
+    width: '100%',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border
+  },
+  atrLabel: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginBottom: 4
+  },
+  atrValue: {
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: COLORS.dark
+  },
+  warningBox: {
+    backgroundColor: '#FEE2E2',
+    padding: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: '100%',
+    marginBottom: 16
+  },
+  warningText: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 13,
+    color: COLORS.danger,
+    lineHeight: 18
+  },
+  expectedCardInfo: {
+    backgroundColor: '#E0F2FE',
+    padding: 16,
+    borderRadius: 12,
+    width: '100%',
+    marginBottom: 24
+  },
+  expectedCardTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.secondary,
+    marginBottom: 8
+  },
+  expectedCardText: {
+    fontSize: 13,
+    color: COLORS.secondary,
+    marginBottom: 4
+  },
 
   // Processing
   processingTitle: {
