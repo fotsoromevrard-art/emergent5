@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getWalletBalance, getMerchantWallet } from '../services/api';
+import { NetworkType } from '../services/blockchainValidationService';
 
 interface TokenBalance {
   symbol: string;
@@ -12,7 +13,9 @@ interface TokenBalance {
 
 interface WalletContextType {
   merchantAddress: string | null;
-  setMerchantAddress: (address: string) => Promise<void>;
+  selectedNetwork: NetworkType;
+  setMerchantAddress: (address: string, network?: NetworkType) => Promise<void>;
+  setSelectedNetwork: (network: NetworkType) => Promise<void>;
   balances: TokenBalance[];
   bnbBalance: string;
   loading: boolean;
@@ -23,6 +26,7 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [merchantAddress, setMerchantAddressState] = useState<string | null>(null);
+  const [selectedNetwork, setSelectedNetworkState] = useState<NetworkType>('bsc');
   const [balances, setBalances] = useState<TokenBalance[]>([]);
   const [bnbBalance, setBnbBalance] = useState<string>('0');
   const [loading, setLoading] = useState(true);
@@ -34,6 +38,12 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const loadWallet = async () => {
     try {
       const stored = await AsyncStorage.getItem('merchantAddress');
+      const storedNetwork = await AsyncStorage.getItem('selectedNetwork') as NetworkType;
+      
+      if (storedNetwork) {
+        setSelectedNetworkState(storedNetwork);
+      }
+      
       if (stored) {
         setMerchantAddressState(stored);
         await fetchBalances(stored);
@@ -45,13 +55,29 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const setMerchantAddress = async (address: string) => {
+  const setMerchantAddress = async (address: string, network?: NetworkType) => {
     try {
       await AsyncStorage.setItem('merchantAddress', address);
       setMerchantAddressState(address);
+      
+      if (network) {
+        await AsyncStorage.setItem('selectedNetwork', network);
+        setSelectedNetworkState(network);
+      }
+      
       await fetchBalances(address);
     } catch (error) {
       console.error('Error setting merchant address:', error);
+      throw error;
+    }
+  };
+
+  const setSelectedNetwork = async (network: NetworkType) => {
+    try {
+      await AsyncStorage.setItem('selectedNetwork', network);
+      setSelectedNetworkState(network);
+    } catch (error) {
+      console.error('Error setting network:', error);
       throw error;
     }
   };
@@ -76,7 +102,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     <WalletContext.Provider
       value={{
         merchantAddress,
+        selectedNetwork,
         setMerchantAddress,
+        setSelectedNetwork,
         balances,
         bnbBalance,
         loading,
