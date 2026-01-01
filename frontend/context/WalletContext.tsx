@@ -1,15 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getWalletBalance, getMerchantWallet } from '../services/api';
 import { NetworkType } from '../services/blockchainValidationService';
-
-interface TokenBalance {
-  symbol: string;
-  name: string;
-  balance: string;
-  balance_formatted: string;
-  contract_address: string;
-}
+import blockchainService, { TokenBalance, WalletInfo } from '../services/blockchainService';
 
 interface WalletContextType {
   merchantAddress: string | null;
@@ -46,7 +38,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       if (stored) {
         setMerchantAddressState(stored);
-        await fetchBalances(stored);
+        await fetchBalances(stored, storedNetwork || 'bsc');
       }
       setLoading(false);
     } catch (error) {
@@ -65,7 +57,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setSelectedNetworkState(network);
       }
       
-      await fetchBalances(address);
+      await fetchBalances(address, network || selectedNetwork);
     } catch (error) {
       console.error('Error setting merchant address:', error);
       throw error;
@@ -76,25 +68,38 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       await AsyncStorage.setItem('selectedNetwork', network);
       setSelectedNetworkState(network);
+      
+      // Rafraîchir les soldes avec le nouveau réseau
+      if (merchantAddress) {
+        await fetchBalances(merchantAddress, network);
+      }
     } catch (error) {
       console.error('Error setting network:', error);
       throw error;
     }
   };
 
-  const fetchBalances = async (address: string) => {
+  // Utilise le service blockchain autonome au lieu de l'API backend
+  const fetchBalances = async (address: string, network: NetworkType = 'bsc') => {
     try {
-      const data = await getWalletBalance(address);
-      setBalances(data.tokens || []);
-      setBnbBalance(data.bnb_balance || '0');
+      console.log('📊 Récupération des soldes via blockchain directe...');
+      const walletInfo = await blockchainService.getWalletInfo(address, network);
+      
+      setBalances(walletInfo.tokens);
+      setBnbBalance(walletInfo.bnb_balance);
+      
+      console.log('✅ Soldes récupérés:', walletInfo);
     } catch (error) {
       console.error('Error fetching balances:', error);
+      // En cas d'erreur, mettre des valeurs par défaut
+      setBalances([]);
+      setBnbBalance('0');
     }
   };
 
   const refreshBalances = async () => {
     if (merchantAddress) {
-      await fetchBalances(merchantAddress);
+      await fetchBalances(merchantAddress, selectedNetwork);
     }
   };
 
