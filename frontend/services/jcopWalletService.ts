@@ -231,6 +231,71 @@ class JCOPWalletService {
     this.isCardSelected = false;
   }
 
+  // =============== DÉTECTION ET VALIDATION DE CARTE ===============
+
+  /**
+   * Détecter et valider la carte insérée
+   * 
+   * IMPORTANT: Cette méthode détecte le type de carte et refuse
+   * automatiquement les cartes bancaires Visa/Mastercard.
+   * 
+   * @param atr - L'ATR de la carte (obtenu lors du power on)
+   * @returns Résultat de détection avec le type de carte et la validation
+   */
+  async detectAndValidateCard(atr: string): Promise<CardDetectionResult> {
+    console.log('🔍 Détection et validation de la carte...');
+    console.log('   ATR:', atr);
+
+    // Étape 1: Analyser l'ATR pour détecter le type de carte
+    const atrAnalysis = cardDetectionService.analyzeATR(atr);
+
+    // Étape 2: Si c'est une carte bancaire, REFUS IMMÉDIAT
+    // IMPORTANT: Ne pas tenter de sélectionner d'applet sur une carte bancaire
+    if (atrAnalysis.isBankingCard) {
+      console.log('🚫 Carte bancaire détectée - REFUS');
+      return cardDetectionService.detectAndValidate(atr, false);
+    }
+
+    // Étape 3: Si c'est possiblement une carte JCOP, tenter de sélectionner l'applet
+    let hasWalletApplet = false;
+    
+    if (atrAnalysis.isJCOP || atrAnalysis.isInfineon) {
+      console.log('💳 Carte JCOP/Infineon détectée, vérification de l\'applet...');
+      
+      try {
+        // Tenter de sélectionner l'applet wallet crypto
+        hasWalletApplet = await this.selectWalletApplet();
+        
+        if (hasWalletApplet) {
+          console.log('✅ Applet wallet crypto trouvé');
+        } else {
+          console.log('❌ Applet wallet crypto non trouvé');
+        }
+      } catch (error) {
+        console.log('❌ Erreur sélection applet:', error);
+        hasWalletApplet = false;
+      }
+    }
+
+    // Étape 4: Retourner le résultat de validation
+    return cardDetectionService.detectAndValidate(atr, hasWalletApplet);
+  }
+
+  /**
+   * Vérifier si une carte peut être utilisée pour le paiement
+   */
+  canProcessPayment(cardResult: CardDetectionResult): boolean {
+    return cardResult.validation === 'VALID' && 
+           cardResult.type === 'JCOP_PROGRAMMED';
+  }
+
+  /**
+   * Obtenir les spécifications attendues de la carte
+   */
+  getExpectedCardSpecs() {
+    return cardDetectionService.getExpectedCardSpecs();
+  }
+
   // =============== SÉLECTION D'APPLET ===============
 
   /**
