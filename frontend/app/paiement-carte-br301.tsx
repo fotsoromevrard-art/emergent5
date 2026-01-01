@@ -645,6 +645,10 @@ export default function PaiementCarteBR301Screen() {
         return renderConnecting();
       case 'waiting_card':
         return renderWaitingCard();
+      case 'detecting_card':
+        return renderDetectingCard();
+      case 'card_rejected':
+        return renderCardRejected();
       case 'reading_card':
         return renderReadingCard();
       case 'processing':
