@@ -56,6 +56,7 @@ interface ReaderDevice {
 export default function PaiementCarteBR301Screen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { merchantAddress, selectedNetwork } = useWallet();
   
   // États
   const [step, setStep] = useState<PaymentStep>('select_mode');
@@ -63,8 +64,10 @@ export default function PaiementCarteBR301Screen() {
   const [readers, setReaders] = useState<ReaderDevice[]>([]);
   const [selectedReader, setSelectedReader] = useState<ReaderDevice | null>(null);
   const [cardInfo, setCardInfo] = useState<CardInfo | null>(null);
+  const [cardDetectionResult, setCardDetectionResult] = useState<CardDetectionResult | null>(null);
   const [error, setError] = useState<string>('');
   const [isWebMode, setIsWebMode] = useState(false);
+  const [txHash, setTxHash] = useState<string>('');
 
   // Paramètres du paiement
   const currency = params.currency as string || 'XAF';
@@ -78,6 +81,7 @@ export default function PaiementCarteBR301Screen() {
       // Nettoyage
       br301BleService.stopCardMonitoring();
       br301UsbService.stopAutoDetection();
+      jcopWalletService.reset();
     };
   }, []);
 
