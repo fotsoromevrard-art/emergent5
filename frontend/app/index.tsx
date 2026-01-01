@@ -269,164 +269,162 @@ export default function HomeScreen() {
         onRequestClose={() => merchantAddress && setShowWalletModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <ScrollView contentContainerStyle={styles.modalScrollContent}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Ionicons name="wallet" size={40} color={COLORS.primary} />
-                <Text style={styles.modalTitle}>Wallet Marchand</Text>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="wallet" size={40} color={COLORS.primary} />
+              <Text style={styles.modalTitle}>Wallet Marchand</Text>
+            </View>
+            
+            <Text style={styles.modalDescription}>
+              Entrez l'adresse de votre portefeuille crypto.{'\n'}
+              C'est sur cette adresse que vous recevrez tous les paiements.
+            </Text>
+            
+            {/* Sélecteur de réseau */}
+            <View style={styles.networkSelector}>
+              <Text style={styles.inputLabel}>Réseau blockchain</Text>
+              <View style={styles.networkButtons}>
+                <TouchableOpacity
+                  style={[
+                    styles.networkButton,
+                    chosenNetwork === 'bsc' && styles.networkButtonActive,
+                    { borderColor: NETWORKS.BSC.color }
+                  ]}
+                  onPress={() => setChosenNetwork('bsc')}
+                >
+                  <View style={[styles.networkDot, { backgroundColor: NETWORKS.BSC.color }]} />
+                  <Text style={[
+                    styles.networkButtonText,
+                    chosenNetwork === 'bsc' && styles.networkButtonTextActive
+                  ]}>BSC</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.networkButton,
+                    chosenNetwork === 'ethereum' && styles.networkButtonActive,
+                    { borderColor: NETWORKS.ETHEREUM.color }
+                  ]}
+                  onPress={() => setChosenNetwork('ethereum')}
+                >
+                  <View style={[styles.networkDot, { backgroundColor: NETWORKS.ETHEREUM.color }]} />
+                  <Text style={[
+                    styles.networkButtonText,
+                    chosenNetwork === 'ethereum' && styles.networkButtonTextActive
+                  ]}>Ethereum</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Adresse du wallet</Text>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="0x742d35Cc6634C0532925a3b..."
+                  value={walletInput}
+                  onChangeText={setWalletInput}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  placeholderTextColor={COLORS.gray}
+                />
+                {Platform.OS === 'web' && (
+                  <TouchableOpacity style={styles.pasteButton} onPress={handlePasteAddress}>
+                    <Ionicons name="clipboard-outline" size={20} color={COLORS.primary} />
+                  </TouchableOpacity>
+                )}
               </View>
               
-              <Text style={styles.modalDescription}>
-                Entrez l'adresse de votre portefeuille crypto.{'\n'}
-                C'est sur cette adresse que vous recevrez tous les paiements.
-              </Text>
+              {/* Validation du format */}
+              {walletInput.length > 0 && !isValidEthAddress(walletInput) && (
+                <Text style={styles.inputError}>
+                  Format invalide. L'adresse doit commencer par 0x et avoir 42 caractères.
+                </Text>
+              )}
               
-              {/* Sélecteur de réseau */}
-              <View style={styles.networkSelector}>
-                <Text style={styles.inputLabel}>Réseau blockchain</Text>
-                <View style={styles.networkButtons}>
-                  <TouchableOpacity
-                    style={[
-                      styles.networkButton,
-                      chosenNetwork === 'bsc' && styles.networkButtonActive,
-                      { borderColor: NETWORKS.BSC.color }
-                    ]}
-                    onPress={() => setChosenNetwork('bsc')}
-                  >
-                    <View style={[styles.networkDot, { backgroundColor: NETWORKS.BSC.color }]} />
-                    <Text style={[
-                      styles.networkButtonText,
-                      chosenNetwork === 'bsc' && styles.networkButtonTextActive
-                    ]}>BSC</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity
-                    style={[
-                      styles.networkButton,
-                      chosenNetwork === 'ethereum' && styles.networkButtonActive,
-                      { borderColor: NETWORKS.ETHEREUM.color }
-                    ]}
-                    onPress={() => setChosenNetwork('ethereum')}
-                  >
-                    <View style={[styles.networkDot, { backgroundColor: NETWORKS.ETHEREUM.color }]} />
-                    <Text style={[
-                      styles.networkButtonText,
-                      chosenNetwork === 'ethereum' && styles.networkButtonTextActive
-                    ]}>Ethereum</Text>
-                  </TouchableOpacity>
+              {/* Indicateur de chargement */}
+              {isValidating && walletInput.length === 42 && (
+                <View style={styles.validatingRow}>
+                  <ActivityIndicator size="small" color={COLORS.primary} />
+                  <Text style={styles.validatingText}>Vérification sur la blockchain...</Text>
                 </View>
-              </View>
+              )}
               
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Adresse du wallet</Text>
-                <View style={styles.inputRow}>
-                  <TextInput
-                    style={styles.modalInput}
-                    placeholder="0x742d35Cc6634C0532925a3b..."
-                    value={walletInput}
-                    onChangeText={setWalletInput}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    placeholderTextColor={COLORS.gray}
-                  />
-                  {Platform.OS === 'web' && (
-                    <TouchableOpacity style={styles.pasteButton} onPress={handlePasteAddress}>
-                      <Ionicons name="clipboard-outline" size={20} color={COLORS.primary} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-                
-                {/* Validation du format */}
-                {walletInput.length > 0 && !isValidEthAddress(walletInput) && (
-                  <Text style={styles.inputError}>
-                    Format invalide. L'adresse doit commencer par 0x et avoir 42 caractères.
-                  </Text>
-                )}
-                
-                {/* Indicateur de chargement */}
-                {isValidating && walletInput.length === 42 && (
-                  <View style={styles.validatingRow}>
-                    <ActivityIndicator size="small" color={COLORS.primary} />
-                    <Text style={styles.validatingText}>Vérification sur la blockchain...</Text>
-                  </View>
-                )}
-                
-                {/* Résultat de validation */}
-                {validationResult && !isValidating && walletInput.length === 42 && (
-                  <View style={styles.validationResult}>
-                    {validationResult.hasActivity ? (
-                      <>
-                        <View style={styles.validationSuccess}>
-                          <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />
-                          <Text style={styles.validationSuccessText}>
-                            Adresse vérifiée sur {validationResult.network === 'bsc' ? 'BSC' : 'Ethereum'}
-                          </Text>
-                        </View>
-                        <View style={styles.addressStats}>
-                          <Text style={styles.statText}>
-                            💰 Solde: {validationResult.balance} {validationResult.network === 'bsc' ? 'BNB' : 'ETH'}
-                          </Text>
-                          <Text style={styles.statText}>
-                            📊 Transactions: {validationResult.transactionCount}
-                          </Text>
-                        </View>
-                        <TouchableOpacity onPress={handleOpenExplorer} style={styles.explorerLink}>
-                          <Ionicons name="open-outline" size={14} color={COLORS.primary} />
-                          <Text style={styles.explorerLinkText}>Voir sur l'explorateur</Text>
-                        </TouchableOpacity>
-                      </>
-                    ) : (
-                      <View style={styles.validationWarning}>
-                        <Ionicons name="alert-circle" size={18} color={COLORS.warning} />
-                        <Text style={styles.validationWarningText}>
-                          Nouvelle adresse (aucune activité détectée)
+              {/* Résultat de validation */}
+              {validationResult && !isValidating && walletInput.length === 42 && (
+                <View style={styles.validationResult}>
+                  {validationResult.hasActivity ? (
+                    <View>
+                      <View style={styles.validationSuccess}>
+                        <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />
+                        <Text style={styles.validationSuccessText}>
+                          Adresse vérifiée sur {validationResult.network === 'bsc' ? 'BSC' : 'Ethereum'}
                         </Text>
                       </View>
-                    )}
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.infoCard}>
-                <Ionicons name="information-circle" size={20} color={COLORS.secondary} />
-                <Text style={styles.infoText}>
-                  Réseau sélectionné: {chosenNetwork === 'bsc' ? 'BNB Smart Chain' : 'Ethereum'}{'\n'}
-                  Devises supportées: XAF, EUROM, TND
-                </Text>
-              </View>
-              
-              <TouchableOpacity 
-                style={[
-                  styles.modalButton, 
-                  (!walletInput || !isValidEthAddress(walletInput) || isValidating) && styles.modalButtonDisabled
-                ]} 
-                onPress={handleSaveWallet}
-                disabled={!walletInput || !isValidEthAddress(walletInput) || isValidating}
-              >
-                {isValidating ? (
-                  <View style={styles.buttonContent}>
-                    <ActivityIndicator size="small" color={COLORS.white} />
-                    <Text style={[styles.modalButtonText, { marginLeft: 8 }]}>Validation...</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.modalButtonText}>Enregistrer</Text>
-                )}
-              </TouchableOpacity>
-              
-              {merchantAddress && (
-                <TouchableOpacity 
-                  style={styles.cancelButton} 
-                  onPress={() => {
-                    setShowWalletModal(false);
-                    setWalletInput('');
-                    setValidationResult(null);
-                  }}
-                >
-                  <Text style={styles.cancelButtonText}>Annuler</Text>
-                </TouchableOpacity>
+                      <View style={styles.addressStats}>
+                        <Text style={styles.statText}>
+                          Solde: {validationResult.balance} {validationResult.network === 'bsc' ? 'BNB' : 'ETH'}
+                        </Text>
+                        <Text style={styles.statText}>
+                          Transactions: {validationResult.transactionCount}
+                        </Text>
+                      </View>
+                      <TouchableOpacity onPress={handleOpenExplorer} style={styles.explorerLink}>
+                        <Ionicons name="open-outline" size={14} color={COLORS.primary} />
+                        <Text style={styles.explorerLinkText}>Voir sur l'explorateur</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View style={styles.validationWarning}>
+                      <Ionicons name="alert-circle" size={18} color={COLORS.warning} />
+                      <Text style={styles.validationWarningText}>
+                        Nouvelle adresse (aucune activité détectée)
+                      </Text>
+                    </View>
+                  )}
+                </View>
               )}
             </View>
-          </ScrollView>
+
+            <View style={styles.infoCard}>
+              <Ionicons name="information-circle" size={20} color={COLORS.secondary} />
+              <Text style={styles.infoText}>
+                Réseau: {chosenNetwork === 'bsc' ? 'BNB Smart Chain' : 'Ethereum'}{'\n'}
+                Devises: XAF, EUROM, TND
+              </Text>
+            </View>
+            
+            <TouchableOpacity 
+              style={[
+                styles.modalButton, 
+                (!walletInput || !isValidEthAddress(walletInput) || isValidating) && styles.modalButtonDisabled
+              ]} 
+              onPress={handleSaveWallet}
+              disabled={!walletInput || !isValidEthAddress(walletInput) || isValidating}
+            >
+              {isValidating ? (
+                <View style={styles.buttonContent}>
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                  <Text style={[styles.modalButtonText, { marginLeft: 8 }]}>Validation...</Text>
+                </View>
+              ) : (
+                <Text style={styles.modalButtonText}>Enregistrer</Text>
+              )}
+            </TouchableOpacity>
+            
+            {merchantAddress && (
+              <TouchableOpacity 
+                style={styles.cancelButton} 
+                onPress={() => {
+                  setShowWalletModal(false);
+                  setWalletInput('');
+                  setValidationResult(null);
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Annuler</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
