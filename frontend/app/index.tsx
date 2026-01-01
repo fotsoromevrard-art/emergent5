@@ -105,7 +105,7 @@ export default function HomeScreen() {
     setIsValidating(true);
     
     try {
-      await configureMerchantWallet(cleanAddress);
+      // Sauvegarde directement en local (plus de dépendance au backend)
       await setMerchantAddress(cleanAddress, chosenNetwork);
       setShowWalletModal(false);
       setWalletInput('');
