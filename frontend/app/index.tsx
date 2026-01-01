@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,9 @@ import {
   Alert,
   TextInput,
   Modal,
-  Clipboard,
-  Platform
+  Platform,
+  ActivityIndicator,
+  Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -18,14 +19,21 @@ import { useWallet } from '../context/WalletContext';
 import { COLORS, CURRENCY_NAMES } from '../config/constants';
 import { Ionicons } from '@expo/vector-icons';
 import { configureMerchantWallet } from '../services/api';
+import blockchainValidationService, { 
+  NetworkType, 
+  AddressValidation,
+  NETWORKS 
+} from '../services/blockchainValidationService';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { merchantAddress, setMerchantAddress, balances, bnbBalance, loading, refreshBalances } = useWallet();
+  const { merchantAddress, selectedNetwork, setMerchantAddress, balances, bnbBalance, loading, refreshBalances } = useWallet();
   const [refreshing, setRefreshing] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [walletInput, setWalletInput] = useState('');
   const [isValidating, setIsValidating] = useState(false);
+  const [validationResult, setValidationResult] = useState<AddressValidation | null>(null);
+  const [chosenNetwork, setChosenNetwork] = useState<NetworkType>('bsc');
 
   useEffect(() => {
     if (!merchantAddress && !loading) {
@@ -43,6 +51,40 @@ export default function HomeScreen() {
   const isValidEthAddress = (address: string): boolean => {
     return /^0x[a-fA-F0-9]{40}$/.test(address);
   };
+
+  // Validation en temps réel de l'adresse sur la blockchain
+  const validateAddressOnChain = useCallback(async (address: string) => {
+    if (!isValidEthAddress(address)) {
+      setValidationResult(null);
+      return;
+    }
+
+    setIsValidating(true);
+    try {
+      const result = await blockchainValidationService.validateAddress(address);
+      setValidationResult(result);
+      
+      // Auto-sélectionner le réseau détecté
+      if (result.network) {
+        setChosenNetwork(result.network);
+      }
+    } catch (error) {
+      console.error('Erreur validation:', error);
+    } finally {
+      setIsValidating(false);
+    }
+  }, []);
+
+  // Debounce la validation pour éviter trop d'appels
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (walletInput.length === 42) {
+        validateAddressOnChain(walletInput);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [walletInput, validateAddressOnChain]);
 
   const handleSaveWallet = async () => {
     // Nettoyer l'adresse
