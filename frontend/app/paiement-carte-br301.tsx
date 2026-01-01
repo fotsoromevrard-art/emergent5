@@ -196,6 +196,9 @@ export default function PaiementCarteBR301Screen() {
   // =============== SURVEILLANCE CARTE ===============
 
   const startCardMonitoring = () => {
+    // Définir le type de connexion pour le service JCOP
+    jcopWalletService.setConnectionType(connectionMode === 'bluetooth' ? 'bluetooth' : 'usb');
+    
     if (connectionMode === 'bluetooth') {
       br301BleService.startCardMonitoring(
         (info) => {
@@ -206,6 +209,7 @@ export default function PaiementCarteBR301Screen() {
         () => {
           console.log('Carte retirée');
           setCardInfo(null);
+          setCardDetectionResult(null);
         },
         1000
       );
@@ -214,20 +218,92 @@ export default function PaiementCarteBR301Screen() {
   };
 
   const handleCardInserted = async (info: CardInfo) => {
-    setStep('reading_card');
+    // Étape 1: Détection du type de carte
+    setStep('detecting_card');
     
-    // Simuler la lecture et le traitement
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setStep('processing');
+      // Obtenir l'ATR de la carte
+      const atr = info.atr || '3B 68 00 00 00 73 C8 40 01 00 90 00'; // ATR par défaut pour test
       
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('🔍 Détection de la carte...');
+      console.log('   ATR:', atr);
       
-      // Paiement réussi
-      setStep('success');
+      // Détecter et valider la carte
+      const detectionResult = await jcopWalletService.detectAndValidateCard(atr);
+      setCardDetectionResult(detectionResult);
+      
+      console.log('📋 Résultat détection:', detectionResult.type, detectionResult.validation);
+      
+      // Vérifier le résultat
+      if (detectionResult.validation === 'VALID') {
+        // ✅ Carte JCOP programmée - Procéder au paiement
+        console.log('✅ Carte valide - Procéder au paiement');
+        setStep('reading_card');
+        await processPayment();
+        
+      } else if (detectionResult.validation === 'REJECTED_BANKING') {
+        // 🚫 Carte bancaire Visa/Mastercard - REFUS
+        console.log('🚫 Carte bancaire détectée - REFUS');
+        setStep('card_rejected');
+        setError(detectionResult.message);
+        
+      } else if (detectionResult.validation === 'REJECTED_EMPTY') {
+        // ❌ Carte JCOP vierge - REJET
+        console.log('❌ Carte vierge - REJET');
+        setStep('card_rejected');
+        setError(detectionResult.message);
+        
+      } else {
+        // ⚠️ Carte inconnue - REJET
+        console.log('⚠️ Carte inconnue - REJET');
+        setStep('card_rejected');
+        setError(detectionResult.message);
+      }
+      
     } catch (err: any) {
+      console.error('Erreur détection carte:', err);
+      setError(err.message || 'Erreur lors de la détection de la carte');
+      setStep('error');
+    }
+  };
+
+  // =============== TRAITEMENT DU PAIEMENT ===============
+
+  const processPayment = async () => {
+    setStep('processing');
+    
+    try {
+      // Vérifier que l'adresse marchand est configurée
+      if (!merchantAddress) {
+        throw new Error('Adresse du wallet marchand non configurée');
+      }
+      
+      console.log('💳 Traitement du paiement...');
+      console.log('   Montant:', amount, currency);
+      console.log('   Destinataire:', merchantAddress);
+      
+      // Effectuer le paiement via la carte
+      const result = await jcopWalletService.processPayment(
+        merchantAddress,
+        amount,
+        currency
+      );
+      
+      if (result.success) {
+        console.log('✅ Paiement réussi !');
+        console.log('   TX Hash:', result.txHash);
+        setTxHash(result.txHash || '');
+        setStep('success');
+      } else {
+        throw new Error(result.error || 'Erreur lors du paiement');
+      }
+      
+    } catch (err: any) {
+      console.error('Erreur paiement:', err);
       setError(err.message || 'Erreur lors du paiement');
       setStep('error');
+    }
+  };
     }
   };
 
