@@ -304,8 +304,6 @@ export default function PaiementCarteBR301Screen() {
       setStep('error');
     }
   };
-    }
-  };
 
   // =============== ACTIONS ===============
 
