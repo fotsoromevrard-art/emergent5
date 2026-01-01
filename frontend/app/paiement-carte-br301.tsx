@@ -1,6 +1,11 @@
 /**
  * Écran de paiement carte via Feitian bR301-BLE
  * Supporte Bluetooth BLE et USB-C
+ * 
+ * Détection des cartes :
+ * ✅ Carte JCOP programmée (Infineon SLE78) → Acceptée
+ * ❌ Carte JCOP vierge → Rejetée
+ * 🚫 Carte bancaire Visa/Mastercard → Refusée
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -22,18 +27,23 @@ import { COLORS, CURRENCY_NAMES } from '../config/constants';
 import { PlatformService } from '../services/platformService';
 import br301BleService, { BR301Device, CardInfo } from '../services/br301BleService';
 import br301UsbService, { BR301USBDevice } from '../services/br301UsbService';
+import jcopWalletService from '../services/jcopWalletService';
+import cardDetectionService, { CardDetectionResult, CardValidationResult } from '../services/cardDetectionService';
+import { useWallet } from '../context/WalletContext';
 
 type ConnectionMode = 'select' | 'bluetooth' | 'usb';
 type PaymentStep = 
-  | 'select_mode'      // Choisir BLE ou USB
-  | 'scanning'         // Recherche des lecteurs
-  | 'select_reader'    // Sélection du lecteur trouvé
-  | 'connecting'       // Connexion en cours
-  | 'waiting_card'     // Attente insertion carte
-  | 'reading_card'     // Lecture de la carte
-  | 'processing'       // Traitement du paiement
-  | 'success'          // Paiement réussi
-  | 'error';           // Erreur
+  | 'select_mode'        // Choisir BLE ou USB
+  | 'scanning'           // Recherche des lecteurs
+  | 'select_reader'      // Sélection du lecteur trouvé
+  | 'connecting'         // Connexion en cours
+  | 'waiting_card'       // Attente insertion carte
+  | 'detecting_card'     // Détection du type de carte
+  | 'card_rejected'      // Carte rejetée (vierge ou bancaire)
+  | 'reading_card'       // Lecture de la carte valide
+  | 'processing'         // Traitement du paiement
+  | 'success'            // Paiement réussi
+  | 'error';             // Erreur
 
 interface ReaderDevice {
   id: string;
