@@ -422,10 +422,11 @@ export default function HomeScreen() {
                     setValidationResult(null);
                   }}
                 >
-                <Text style={styles.cancelButtonText}>Annuler</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+                  <Text style={styles.cancelButtonText}>Annuler</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </ScrollView>
         </View>
       </Modal>
     </SafeAreaView>
