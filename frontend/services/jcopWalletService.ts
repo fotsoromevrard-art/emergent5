@@ -2,6 +2,7 @@
  * Service APDU pour cartes JCOP ISO-7816 (Infineon SLE78)
  * 
  * Ce service gère les commandes APDU pour :
+ * - Détection et validation du type de carte
  * - Sélection d'applet wallet
  * - Lecture d'adresse et solde
  * - Signature de transactions
@@ -10,12 +11,19 @@
  * Compatible avec :
  * - Protocoles T=0 et T=1
  * - Cartes Class A, B, C
- * - Infineon SLE78CLFX4000PM
+ * - Infineon SLE78CLFX4000PM (400Ko NVM, 8Ko RAM)
  * - FTJCOS (FIPS 140-2 Level 3)
+ * 
+ * IMPORTANT: Ne traite PAS les cartes bancaires Visa/Mastercard
  */
 
 import br301BleService, { APDUResponse } from './br301BleService';
 import br301UsbService from './br301UsbService';
+import cardDetectionService, { 
+  CardDetectionResult, 
+  CardValidationResult,
+  CardType 
+} from './cardDetectionService';
 
 // =============== CONSTANTES APDU ISO-7816 ===============
 
