@@ -1,12 +1,17 @@
 /**
- * Écran de paiement par carte
- * Mode démonstration compatible Expo Go
+ * Écran de paiement par carte via Feitian bR301
  * 
- * Ce flux simule le processus de paiement pour permettre
- * de tester l'interface utilisateur complète.
+ * Supporte :
+ * - Mode USB réel (sur APK Android custom)
+ * - Mode simulation (sur Expo Go / Web)
+ * 
+ * Détection des cartes :
+ * ✅ Carte JCOP programmée → Acceptée
+ * ❌ Carte JCOP vierge → Rejetée  
+ * 🚫 Carte bancaire → Refusée
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,17 +25,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, CURRENCY_NAMES } from '../config/constants';
-import { PlatformService } from '../services/platformService';
-import cardReaderService, { CardReaderDevice, CardInfo } from '../services/cardReaderService';
+import cardReaderService, { 
+  CardReaderDevice, 
+  CardInfo, 
+  initCardReader 
+} from '../services/cardReaderService';
 import { useWallet } from '../context/WalletContext';
 
 type PaymentStep = 
-  | 'connecting'      // Connexion au lecteur
-  | 'waiting_card'    // Attente insertion carte
-  | 'reading_card'    // Lecture de la carte
-  | 'processing'      // Traitement du paiement
-  | 'success'         // Paiement réussi
-  | 'error';          // Erreur
+  | 'initializing'       // Initialisation du service
+  | 'scanning'           // Recherche des lecteurs
+  | 'connecting'         // Connexion au lecteur
+  | 'waiting_card'       // Attente insertion carte
+  | 'detecting_card'     // Détection du type de carte
+  | 'card_rejected'      // Carte rejetée
+  | 'processing'         // Traitement du paiement
+  | 'success'            // Paiement réussi
+  | 'error';             // Erreur
 
 export default function PaiementCarteScreen() {
   const router = useRouter();
@@ -38,54 +49,95 @@ export default function PaiementCarteScreen() {
   const { merchantAddress } = useWallet();
   
   // États
-  const [step, setStep] = useState<PaymentStep>('connecting');
+  const [step, setStep] = useState<PaymentStep>('initializing');
+  const [mode, setMode] = useState<'usb' | 'simulation'>('simulation');
+  const [readers, setReaders] = useState<CardReaderDevice[]>([]);
   const [connectedReader, setConnectedReader] = useState<CardReaderDevice | null>(null);
   const [cardInfo, setCardInfo] = useState<CardInfo | null>(null);
   const [error, setError] = useState<string>('');
   const [txHash, setTxHash] = useState<string>('');
-  const [isDemoMode] = useState(PlatformService.isDemoMode);
+  const [signature, setSignature] = useState<string>('');
 
   // Paramètres du paiement
-  const currency = params.currency as string || 'XAF';
+  const currency = params.currency as string || 'XAF_STABLE';
   const amount = parseFloat(params.amount as string) || 0;
 
+  // Initialisation
   useEffect(() => {
-    startConnectionProcess();
+    initializeService();
     
     return () => {
-      // Nettoyage
+      // Nettoyage à la fermeture
       cardReaderService.disconnect();
     };
   }, []);
 
-  // =============== PROCESSUS DE CONNEXION ===============
+  // =============== INITIALISATION ===============
 
-  const startConnectionProcess = async () => {
-    setStep('connecting');
+  const initializeService = async () => {
+    setStep('initializing');
+    
+    try {
+      // Initialiser le service de lecteur de carte
+      const result = await initCardReader();
+      setMode(result.mode);
+      
+      // Passer au scan des lecteurs
+      await scanForReaders();
+    } catch (err: any) {
+      setError('Erreur d\'initialisation');
+      setStep('error');
+    }
+  };
+
+  // =============== SCAN DES LECTEURS ===============
+
+  const scanForReaders = async () => {
+    setStep('scanning');
     setError('');
 
     try {
-      // Rechercher les lecteurs
-      const readers = await cardReaderService.scanForReaders();
-      
-      if (readers.length === 0) {
-        throw new Error('Aucun lecteur trouvé');
+      const foundReaders = await cardReaderService.scanForReaders();
+      setReaders(foundReaders);
+
+      if (foundReaders.length === 0) {
+        setError('Aucun lecteur trouvé. Connectez votre bR301 via USB-C.');
+        setStep('error');
+        return;
       }
 
-      // Se connecter au premier lecteur trouvé
-      const reader = readers[0];
+      // Si un seul lecteur, se connecter automatiquement
+      if (foundReaders.length === 1) {
+        await connectToReader(foundReaders[0]);
+      } else {
+        // Afficher la liste pour sélection
+        // Pour l'instant, prendre le premier
+        await connectToReader(foundReaders[0]);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Erreur de scan');
+      setStep('error');
+    }
+  };
+
+  // =============== CONNEXION AU LECTEUR ===============
+
+  const connectToReader = async (reader: CardReaderDevice) => {
+    setStep('connecting');
+
+    try {
       const connected = await cardReaderService.connect(reader);
       
-      if (!connected) {
-        throw new Error('Impossible de se connecter au lecteur');
+      if (connected) {
+        setConnectedReader(cardReaderService.getConnectedReader());
+        setStep('waiting_card');
+        
+        // Démarrer la détection de carte
+        startCardDetection();
+      } else {
+        setError('Impossible de se connecter au lecteur');
+        setStep('error');
       }
-
-      setConnectedReader(reader);
-      setStep('waiting_card');
-      
-      // Démarrer la détection de carte
-      detectCard();
-      
     } catch (err: any) {
       setError(err.message || 'Erreur de connexion');
       setStep('error');
@@ -94,51 +146,75 @@ export default function PaiementCarteScreen() {
 
   // =============== DÉTECTION DE CARTE ===============
 
-  const detectCard = async () => {
+  const startCardDetection = useCallback(async () => {
+    // Attendre un peu pour l'animation
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    setStep('detecting_card');
+
     try {
-      // Attendre un peu pour l'effet visuel
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
       const card = await cardReaderService.checkCard();
-      
-      if (card.present && card.type === 'jcop_valid') {
-        setCardInfo(card);
-        setStep('reading_card');
-        
-        // Procéder au paiement après un court délai
-        setTimeout(() => processPayment(), 1500);
-      } else if (card.present && card.type === 'jcop_blank') {
-        setError('Carte vierge détectée. Utilisez une carte programmée.');
-        setStep('error');
-      } else if (card.present && card.type === 'bank_card') {
-        setError('Carte bancaire non supportée. Utilisez une carte JCOP.');
-        setStep('error');
+      setCardInfo(card);
+
+      if (!card.present) {
+        // Pas de carte, réessayer
+        setTimeout(startCardDetection, 1000);
+        setStep('waiting_card');
+        return;
+      }
+
+      if (card.supported && card.type === 'jcop_valid') {
+        // Carte valide, procéder au paiement
+        setTimeout(() => processPayment(), 1000);
       } else {
-        // Carte non détectée, réessayer
-        detectCard();
+        // Carte non supportée
+        let errorMsg = 'Carte non reconnue';
+        
+        if (card.type === 'jcop_blank') {
+          errorMsg = 'Cette carte JCOP n\'est pas programmée. Utilisez une carte avec l\'applet Crypto Wallet installé.';
+        } else if (card.type === 'bank_card') {
+          errorMsg = 'Les cartes bancaires (Visa/Mastercard) ne sont pas supportées. Ce terminal utilise uniquement des cartes JCOP.';
+        }
+        
+        setError(errorMsg);
+        setStep('card_rejected');
       }
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Erreur de détection');
       setStep('error');
     }
-  };
+  }, []);
 
   // =============== TRAITEMENT DU PAIEMENT ===============
 
   const processPayment = async () => {
+    if (!merchantAddress) {
+      setError('Adresse marchand non configurée');
+      setStep('error');
+      return;
+    }
+
     setStep('processing');
-    
+
     try {
-      const result = await cardReaderService.processPayment(amount, currency);
-      
+      const result = await cardReaderService.processPayment(
+        amount,
+        currency,
+        merchantAddress
+      );
+
       if (result.success && result.txHash) {
         setTxHash(result.txHash);
+        if (result.signature) {
+          setSignature(result.signature);
+        }
         setStep('success');
       } else {
-        throw new Error(result.error || 'Échec du paiement');
+        setError(result.error || 'Échec du paiement');
+        setStep('error');
       }
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Erreur de paiement');
       setStep('error');
     }
   };
@@ -147,7 +223,8 @@ export default function PaiementCarteScreen() {
 
   const handleRetry = () => {
     setError('');
-    startConnectionProcess();
+    setCardInfo(null);
+    initializeService();
   };
 
   const handleNewPayment = () => {
@@ -158,24 +235,62 @@ export default function PaiementCarteScreen() {
     router.replace('/');
   };
 
-  // =============== RENDU DES ÉTAPES ===============
+  const handleRetryCard = () => {
+    setError('');
+    setCardInfo(null);
+    setStep('waiting_card');
+    startCardDetection();
+  };
+
+  // =============== RENDU ===============
+
+  const renderModeIndicator = () => {
+    if (mode === 'simulation') {
+      return (
+        <View style={styles.modeIndicator}>
+          <Ionicons name="flask" size={14} color={COLORS.warning} />
+          <Text style={styles.modeText}>Mode Simulation</Text>
+        </View>
+      );
+    }
+    return (
+      <View style={[styles.modeIndicator, { backgroundColor: COLORS.success + '20' }]}>
+        <Ionicons name="hardware-chip" size={14} color={COLORS.success} />
+        <Text style={[styles.modeText, { color: COLORS.success }]}>Mode USB</Text>
+      </View>
+    );
+  };
 
   const renderStepContent = () => {
     switch (step) {
-      case 'connecting':
+      case 'initializing':
         return (
           <View style={styles.stepContainer}>
             <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={styles.stepTitle}>Connexion au lecteur...</Text>
+            <Text style={styles.stepTitle}>Initialisation...</Text>
             <Text style={styles.stepSubtitle}>
-              Recherche du lecteur de carte
+              Préparation du service de lecture
             </Text>
-            {isDemoMode && (
-              <View style={styles.demoBadge}>
-                <Ionicons name="information-circle" size={16} color={COLORS.warning} />
-                <Text style={styles.demoText}>Mode démonstration</Text>
-              </View>
-            )}
+          </View>
+        );
+
+      case 'scanning':
+        return (
+          <View style={styles.stepContainer}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.stepTitle}>Recherche du lecteur...</Text>
+            <Text style={styles.stepSubtitle}>
+              Connectez votre Feitian bR301 via USB-C
+            </Text>
+            {renderModeIndicator()}
+          </View>
+        );
+
+      case 'connecting':
+        return (
+          <View style={styles.stepContainer}>
+            <ActivityIndicator size="large" color={COLORS.secondary} />
+            <Text style={styles.stepTitle}>Connexion au lecteur...</Text>
           </View>
         );
 
@@ -189,25 +304,64 @@ export default function PaiementCarteScreen() {
             <Text style={styles.stepSubtitle}>
               Insérez la carte à puce dans le lecteur
             </Text>
-            <View style={styles.readerInfo}>
-              <Ionicons name="checkmark-circle" size={20} color={COLORS.success} />
-              <Text style={styles.readerName}>{connectedReader?.name}</Text>
-            </View>
+            {connectedReader && (
+              <View style={styles.readerInfo}>
+                <Ionicons name="checkmark-circle" size={20} color={COLORS.success} />
+                <Text style={styles.readerName}>{connectedReader.name}</Text>
+              </View>
+            )}
             <ActivityIndicator size="small" color={COLORS.gray} style={{ marginTop: 20 }} />
+            {renderModeIndicator()}
           </View>
         );
 
-      case 'reading_card':
+      case 'detecting_card':
         return (
           <View style={styles.stepContainer}>
-            <View style={[styles.cardIconContainer, { backgroundColor: COLORS.success + '20' }]}>
-              <Ionicons name="card" size={80} color={COLORS.success} />
+            <View style={[styles.cardIconContainer, { backgroundColor: COLORS.secondary + '20' }]}>
+              <Ionicons name="scan" size={80} color={COLORS.secondary} />
             </View>
-            <Text style={styles.stepTitle}>Carte détectée</Text>
+            <Text style={styles.stepTitle}>Lecture de la carte...</Text>
             <Text style={styles.stepSubtitle}>
-              {cardInfo?.message || 'Lecture en cours...'}
+              Identification en cours
             </Text>
-            <ActivityIndicator size="small" color={COLORS.success} style={{ marginTop: 20 }} />
+            <ActivityIndicator size="small" color={COLORS.secondary} style={{ marginTop: 20 }} />
+          </View>
+        );
+
+      case 'card_rejected':
+        return (
+          <View style={styles.stepContainer}>
+            <View style={[styles.cardIconContainer, { backgroundColor: COLORS.danger + '20' }]}>
+              <Ionicons name="close-circle" size={80} color={COLORS.danger} />
+            </View>
+            <Text style={[styles.stepTitle, { color: COLORS.danger }]}>
+              Carte non acceptée
+            </Text>
+            <Text style={styles.errorMessage}>{error}</Text>
+            
+            {cardInfo && (
+              <View style={styles.cardInfoBox}>
+                <Text style={styles.cardInfoLabel}>Type détecté:</Text>
+                <Text style={styles.cardInfoValue}>{cardInfo.typeName}</Text>
+                {cardInfo.atr && (
+                  <>
+                    <Text style={styles.cardInfoLabel}>ATR:</Text>
+                    <Text style={styles.cardInfoATR}>{cardInfo.atr}</Text>
+                  </>
+                )}
+              </View>
+            )}
+            
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity style={styles.retryButton} onPress={handleRetryCard}>
+                <Ionicons name="refresh" size={20} color={COLORS.white} />
+                <Text style={styles.retryButtonText}>Essayer une autre carte</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cancelButton} onPress={handleGoHome}>
+                <Text style={styles.cancelButtonText}>Annuler</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         );
 
@@ -225,6 +379,12 @@ export default function PaiementCarteScreen() {
                 {amount} {CURRENCY_NAMES[currency as keyof typeof CURRENCY_NAMES] || currency}
               </Text>
             </View>
+            {cardInfo && (
+              <View style={styles.cardValidBadge}>
+                <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
+                <Text style={styles.cardValidText}>{cardInfo.typeName}</Text>
+              </View>
+            )}
           </View>
         );
 
@@ -247,6 +407,14 @@ export default function PaiementCarteScreen() {
                   </Text>
                 </View>
               )}
+              {signature && (
+                <View style={styles.signatureContainer}>
+                  <Text style={styles.txHashLabel}>Signature</Text>
+                  <Text style={styles.txHash}>
+                    {signature.slice(0, 20)}...
+                  </Text>
+                </View>
+              )}
             </View>
             <View style={styles.successButtons}>
               <TouchableOpacity style={styles.primaryButton} onPress={handleNewPayment}>
@@ -264,7 +432,7 @@ export default function PaiementCarteScreen() {
         return (
           <View style={styles.stepContainer}>
             <View style={styles.errorIcon}>
-              <Ionicons name="close-circle" size={100} color={COLORS.danger} />
+              <Ionicons name="alert-circle" size={100} color={COLORS.danger} />
             </View>
             <Text style={styles.errorTitle}>Erreur</Text>
             <Text style={styles.errorMessage}>{error}</Text>
@@ -279,6 +447,9 @@ export default function PaiementCarteScreen() {
             </View>
           </View>
         );
+
+      default:
+        return null;
     }
   };
 
@@ -294,7 +465,7 @@ export default function PaiementCarteScreen() {
       </View>
 
       {/* Résumé du paiement */}
-      {step !== 'success' && step !== 'error' && (
+      {step !== 'success' && step !== 'error' && step !== 'card_rejected' && (
         <View style={styles.summaryBar}>
           <Text style={styles.summaryText}>
             {amount} {CURRENCY_NAMES[currency as keyof typeof CURRENCY_NAMES] || currency}
@@ -307,12 +478,12 @@ export default function PaiementCarteScreen() {
         {renderStepContent()}
       </ScrollView>
 
-      {/* Footer info en mode démo */}
-      {isDemoMode && step !== 'success' && step !== 'error' && (
+      {/* Footer info */}
+      {mode === 'simulation' && !['success', 'error', 'card_rejected'].includes(step) && (
         <View style={styles.demoFooter}>
-          <Ionicons name="flask" size={16} color={COLORS.warning} />
+          <Ionicons name="information-circle" size={16} color={COLORS.warning} />
           <Text style={styles.demoFooterText}>
-            Mode démonstration - Le flux est simulé
+            Mode simulation - Utilisez un APK custom pour le mode USB réel
           </Text>
         </View>
       )}
@@ -371,7 +542,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center'
   },
-  demoBadge: {
+  modeIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.warning + '20',
@@ -380,10 +551,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginTop: 20
   },
-  demoText: {
+  modeText: {
     color: COLORS.warning,
     marginLeft: 6,
-    fontWeight: '500'
+    fontWeight: '500',
+    fontSize: 12
   },
   cardIconContainer: {
     width: 160,
@@ -425,6 +597,42 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     marginTop: 4
   },
+  cardValidBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16
+  },
+  cardValidText: {
+    marginLeft: 6,
+    color: COLORS.success,
+    fontWeight: '500'
+  },
+  cardInfoBox: {
+    backgroundColor: COLORS.white,
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 20,
+    width: '100%'
+  },
+  cardInfoLabel: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginTop: 8
+  },
+  cardInfoValue: {
+    fontSize: 14,
+    color: COLORS.dark,
+    fontWeight: '500'
+  },
+  cardInfoATR: {
+    fontSize: 10,
+    color: COLORS.gray,
+    fontFamily: 'monospace'
+  },
+  buttonContainer: {
+    width: '100%',
+    marginTop: 24
+  },
   successIcon: {
     marginBottom: 16
   },
@@ -454,12 +662,17 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center'
   },
+  signatureContainer: {
+    marginTop: 12,
+    width: '100%',
+    alignItems: 'center'
+  },
   txHashLabel: {
     fontSize: 12,
     color: COLORS.gray
   },
   txHash: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.dark,
     fontFamily: 'monospace',
     marginTop: 4
@@ -500,10 +713,12 @@ const styles = StyleSheet.create({
     color: COLORS.danger
   },
   errorMessage: {
-    fontSize: 16,
+    fontSize: 14,
     color: COLORS.gray,
     textAlign: 'center',
-    marginTop: 12
+    marginTop: 12,
+    paddingHorizontal: 20,
+    lineHeight: 22
   },
   errorButtons: {
     width: '100%',
@@ -519,7 +734,7 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: COLORS.white,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     marginLeft: 8
   },
@@ -536,12 +751,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.warning + '20',
-    padding: 12
+    backgroundColor: COLORS.warning + '15',
+    padding: 10
   },
   demoFooterText: {
     color: COLORS.warning,
     marginLeft: 8,
-    fontSize: 12
+    fontSize: 11
   }
 });
