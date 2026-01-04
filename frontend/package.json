@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "expo": "^48.0.0",
+    "expo-router": "^1.6.6",
     "expo-status-bar": "~1.4.4",
     "react": "18.2.0",
     "react-dom": "18.2.0",
