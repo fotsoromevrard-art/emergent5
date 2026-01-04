@@ -16,7 +16,7 @@ Cette erreur se produit parfois lors du téléchargement via Expo Go. Voici les 
 
 2. **Aller à l'URL** :
    ```
-   https://smart-pay-point.preview.emergentagent.com
+   https://merchant-pos-5.preview.emergentagent.com
    ```
 
 3. **L'application se charge directement** dans le navigateur
@@ -96,7 +96,7 @@ curl http://localhost:8001/api/blockchain/status
 ```
 
 ### 2. Frontend Web
-Ouvrir : `https://smart-pay-point.preview.emergentagent.com`
+Ouvrir : `https://merchant-pos-5.preview.emergentagent.com`
 
 **Résultat attendu** :
 - Page de l'application TPE Crypto qui se charge
@@ -157,7 +157,7 @@ Si vous rencontrez toujours des problèmes :
 **Pour la meilleure expérience**, utilisez la **Méthode 1 (Accès Web)** :
 
 ```
-🔗 https://smart-pay-point.preview.emergentagent.com
+🔗 https://merchant-pos-5.preview.emergentagent.com
 ```
 
 Cette méthode :
