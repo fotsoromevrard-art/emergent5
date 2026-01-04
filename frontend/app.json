@@ -18,7 +18,10 @@
         "backgroundColor": "#1E3A5F"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.tpecrypto.app"
+      "package": "com.tpecrypto.app",
+      "permissions": [
+        "android.permission.USB_PERMISSION"
+      ]
     },
     "web": {
       "bundler": "metro",

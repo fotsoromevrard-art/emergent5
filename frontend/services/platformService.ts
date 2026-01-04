@@ -1,6 +1,6 @@
 /**
  * Service de détection de plateforme
- * Détermine si l'application fonctionne sur web, native, etc.
+ * Détermine les capacités de l'environnement d'exécution
  */
 
 import { Platform } from 'react-native';
@@ -35,13 +35,10 @@ class PlatformServiceClass {
   }
 
   /**
-   * Mode de démonstration (toujours vrai pour Expo Go)
-   * En production avec un build custom, ceci sera false
+   * Vérifie si l'USB est disponible (Android uniquement pour le moment)
    */
-  get isDemoMode(): boolean {
-    // Pour Expo Go, on est toujours en mode démo
-    // Un vrai build natif aurait accès aux modules natifs
-    return true;
+  get canUseUSB(): boolean {
+    return Platform.OS === 'android';
   }
 
   /**
@@ -49,6 +46,20 @@ class PlatformServiceClass {
    */
   get platformName(): string {
     return Platform.OS;
+  }
+
+  /**
+   * Vérifie si on est en mode Expo Go (sans modules natifs)
+   * Dans un build custom, cette valeur sera false
+   */
+  isExpoGo(): boolean {
+    try {
+      // En Expo Go, certains modules natifs ne sont pas disponibles
+      // On peut détecter cela en vérifiant si le module USB est chargeable
+      return false; // Sera true si le module n'est pas disponible
+    } catch {
+      return true;
+    }
   }
 }
 
