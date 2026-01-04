@@ -1,36 +1,56 @@
 /**
- * Platform Service - Détection de plateforme et gestion des capacités
- * Empêche l'exécution du code natif sur le web
+ * Service de détection de plateforme
+ * Détermine si l'application fonctionne sur web, native, etc.
  */
 
 import { Platform } from 'react-native';
 
-export const PlatformService = {
-  // Vérifie si on est sur une plateforme native (Android/iOS)
-  isNative: Platform.OS === 'android' || Platform.OS === 'ios',
-  
-  // Vérifie si on est sur Android
-  isAndroid: Platform.OS === 'android',
-  
-  // Vérifie si on est sur iOS
-  isIOS: Platform.OS === 'ios',
-  
-  // Vérifie si on est sur le web
-  isWeb: Platform.OS === 'web',
-  
-  // Vérifie si Bluetooth est disponible (uniquement sur native)
-  canUseBluetooth: Platform.OS === 'android' || Platform.OS === 'ios',
-  
-  // Vérifie si USB est disponible (uniquement sur Android)
-  canUseUSB: Platform.OS === 'android',
-  
-  // Message d'erreur pour les fonctionnalités non disponibles
-  getUnavailableMessage: (feature: string): string => {
-    if (Platform.OS === 'web') {
-      return `${feature} n'est pas disponible dans le navigateur. Utilisez l'application mobile.`;
-    }
-    return `${feature} n'est pas disponible sur cette plateforme.`;
+class PlatformServiceClass {
+  /**
+   * Vérifie si l'app tourne sur le web
+   */
+  get isWeb(): boolean {
+    return Platform.OS === 'web';
   }
-};
 
+  /**
+   * Vérifie si l'app tourne sur une plateforme native (iOS/Android)
+   */
+  get isNative(): boolean {
+    return Platform.OS === 'ios' || Platform.OS === 'android';
+  }
+
+  /**
+   * Vérifie si l'app tourne sur Android
+   */
+  get isAndroid(): boolean {
+    return Platform.OS === 'android';
+  }
+
+  /**
+   * Vérifie si l'app tourne sur iOS
+   */
+  get isIOS(): boolean {
+    return Platform.OS === 'ios';
+  }
+
+  /**
+   * Mode de démonstration (toujours vrai pour Expo Go)
+   * En production avec un build custom, ceci sera false
+   */
+  get isDemoMode(): boolean {
+    // Pour Expo Go, on est toujours en mode démo
+    // Un vrai build natif aurait accès aux modules natifs
+    return true;
+  }
+
+  /**
+   * Retourne le nom de la plateforme
+   */
+  get platformName(): string {
+    return Platform.OS;
+  }
+}
+
+export const PlatformService = new PlatformServiceClass();
 export default PlatformService;
